@@ -1,4 +1,4 @@
-#! /usr/bin/env python/
+#!/usr/bin/env python
 
 # Python Arm Wrapper for the PR2
 # Robert Bosch 
@@ -14,7 +14,7 @@ import roslib; roslib.load_manifest('Pr2Debridement')
 import actionlib
 import rospy
 import pr2_controllers_msgs.msg
-import geometry_msgs.msg
+#import geometry_msgs.msg
 import kinematics_msgs.msg
 import kinematics_msgs.srv
 #import motion_planning_msgs.msg
@@ -24,14 +24,17 @@ import std_msgs.msg
 from math import *
 import numpy as np
 import tf
-
+from geometry_msgs.msg import *
+from Constants import *
+from PR2CMClient import *
+from Util import *
 
 class CommandPoseClass:
     def __init__(self, armName):
         self.armName = armName
         self.running = False
         self.listener = tf.TransformListener()
-        pubTopic = '/' + armName + '_' + ConstantsClass.ControllerName.CartesianPose + '/command_pose'
+        pubTopic = '/' + armName + '_' + ConstantsClass.ControllerName.JTCartesian + '/command_pose'
         self.pub = rospy.Publisher(pubTopic, PoseStamped)
 
     def startup(self):
@@ -55,8 +58,8 @@ class CommandPoseClass:
         if not self.isRunning():
             return False
 
-        cmd = PoseCommand()
-        cmd.header.frame_id = desPoint.header.frame_id
+        cmd = PoseStamped()
+        cmd.header.frame_id = desPose.header.frame_id
 
         cmd.pose = desPose.pose
 
@@ -64,3 +67,61 @@ class CommandPoseClass:
         
         return True
 
+
+
+
+
+
+
+
+
+
+def test():
+    
+    def stereoCallback(msg):
+        test.desiredPose = PoseStamped()
+        test.desiredPose.pose.orientation.w = .5**.5
+        test.desiredPose.pose.orientation.x = 0
+        test.desiredPose.pose.orientation.y = .5**.5
+        test.desiredPose.pose.orientation.z = 0
+        
+        test.desiredPose.header = msg.header
+        test.desiredPose.pose.position = msg.point
+
+    rospy.init_node('test_command_pose')
+    listener = tf.TransformListener()
+
+    test.desiredPose = None
+
+    gripperPose = PoseStamped()
+    gripperPose.pose.orientation.w = 1
+    gripperPose.header.frame_id = ConstantsClass.ToolFrame.Left
+
+    gripperFrame = ConstantsClass.ToolFrame.Left
+
+    rospy.Subscriber(ConstantsClass.StereoName, PointStamped, stereoCallback)
+
+    commandPose = CommandPoseClass(ConstantsClass.ArmName.Left)
+    commandPose.startup()
+
+    while commandPose.isRunning():
+        rospy.loginfo('outer loop')
+        if test.desiredPose != None:
+            rospy.loginfo('inner loop')
+
+            
+            gripperPose.header.stamp = rospy.Time.now()
+
+            commandPose.goToPose(test.desiredPose)
+            
+            #while euclidianDistance(poseStampedToPointStamped(gripperPose), poseStampedToPointStamped(test.desiredPose)) > .05:
+            #    rospy.sleep(.1)
+            
+        rospy.sleep(2.0)
+
+ 
+
+
+
+if __name__ == '__main__':
+    test()
