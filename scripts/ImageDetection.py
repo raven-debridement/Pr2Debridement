@@ -5,7 +5,7 @@ import roslib
 roslib.load_manifest('Pr2Debridement')
 import rospy
 import sys
-from geometry_msgs.msg import Twist, PointStamped
+from geometry_msgs.msg import Twist, PointStamped, PoseStamped
 from sensor_msgs.msg import Image
 import tf
 
@@ -16,8 +16,9 @@ class ImageDetectionClass():
             #PointStamped list
             self.cancerPoints = []
             #gripper pose
-            self.gripperPose = None
-            
+            self.leftGripperPose = None
+            self.rightGripperPose = None
+
             # may only temporarily need
             self.listener = tf.TransformListener()
 
@@ -39,7 +40,20 @@ class ImageDetectionClass():
             self.cancerLock.release()
 
       def imageCallback(self, msg):
-            return 0
+            # gripperPoses in own frames
+
+            rgp = PoseStamped()
+            rgp.header.stamp = msg.header.stamp
+            rgp.header.frame_id = ConstantsClass.ToolFrame.Right
+            rgp.orienation.w = 1
+            self.rightGripperPose = rgp
+
+            lgp = PoseStamped()
+            lgp.header.stamp = msg.header.stamp
+            lgp.header.frame_id = ConstantsClass.ToolFrame.Left
+            lgp.orienation.w = 1
+            self.rightGripperPose = lgp
+            
 
       def hasFoundCancer(self):
             return len(self.cancerPoints) > 0
@@ -58,14 +72,27 @@ class ImageDetectionClass():
 
             return cancerPoint
       
-      def hasFoundGripper(self):
-            return (self.gripperPose != None)
+      def hasFoundGripper(self, gripperName):
+            """
+            gripperName must be from ConstantsClass.GripperName
+            """
+            if gripperName == ConstantsClass.GripperName.Left:
+                  return (self.leftGripperPose != None)
+            else:
+                  return (self.rightGripperPose != None)
 
-      def getGripperPose(self):
-            if not self.hasFoundGripper():
+      def getGripperPose(self, gripperName):
+            """
+            gripperName must be from ConstantsClass.GripperName
+            """
+            if not self.hasFoundGripper(gripperName):
                   return None
 
-            return self.gripperPose
+            if gripperName == ConstantsClass.GripperName.Left:
+                  return self.leftGripperPose
+            else:
+                  return self.rightGripperPose
+
       
       
 
