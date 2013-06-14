@@ -10,6 +10,7 @@ from sensor_msgs.msg import Image
 import tf
 
 from Util import *
+from Constants import *
 
 from threading import *
 
@@ -33,7 +34,7 @@ class ImageDetectionClass():
             # Will subscribe to camera feeds eventually
             rospy.Subscriber('stereo_points_3d', PointStamped, self.stereoCallback)
 
-            rospy.Subscriber('/wide_stereo/right/image_rect', sensor_msgs.Image,self.imageCallback)
+            rospy.Subscriber('/wide_stereo/right/image_rect', Image,self.imageCallback)
 
       def stereoCallback(self, msg):
             """
@@ -45,17 +46,17 @@ class ImageDetectionClass():
 
       def imageCallback(self, msg):
             # gripperPoses in own frames
-
+            rospy.loginfo('Image received')
             rgp = PoseStamped()
             rgp.header.stamp = msg.header.stamp
             rgp.header.frame_id = ConstantsClass.ToolFrame.Right
-            rgp.orienation.w = 1
+            rgp.pose.orientation.w = 1
             self.rightGripperPose = rgp
 
             lgp = PoseStamped()
             lgp.header.stamp = msg.header.stamp
             lgp.header.frame_id = ConstantsClass.ToolFrame.Left
-            lgp.orienation.w = 1
+            lgp.pose.orientation.w = 1
             self.rightGripperPose = lgp
             
 
@@ -118,3 +119,9 @@ class ImageDetectionClass():
       def getReceptaclePoint(self):
             return Util.poseStampedToPointStamped(self.receptaclePose)
             
+
+if __name__ == '__main__':
+      rospy.init_node('image_detection_node')
+      imageDetector = ImageDetectionClass()
+      while True:
+            rospy.sleep(10)
