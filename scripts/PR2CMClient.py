@@ -11,7 +11,7 @@ roslib.load_manifest('Pr2Debridement')
 import rospy
 import pr2_controller_manager.pr2_controller_manager_interface
 
-from ConstantsClass import *
+from Constants import *
 
 class PR2CMClient:
     '''

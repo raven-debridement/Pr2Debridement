@@ -10,7 +10,7 @@ import tf
 
 from PR2CMClient import *
 
-from ConstantsClass import *
+from Constants import *
 
 class CommandTwistClass():
     def __init__(self, armName, scale=.5):
@@ -43,9 +43,11 @@ class CommandTwistClass():
 
         currPoint -- PointStamped current position of gripper
         desPoint -- PointStamped desired position of gripper
+
+        Returns True if successfully published
         """
         if not self.isRunning():
-            return
+            return False
 
         currPoint, desPoint = self.convertToSameFrameAndTime(currPoint, desPoint)
 
@@ -60,6 +62,8 @@ class CommandTwistClass():
         twistCommand.angular.z = 0
 
         self.pub.publish(twistCommand)
+        
+        return True
 
 
     def convertToSameFrameAndTime(self, point0, point1):

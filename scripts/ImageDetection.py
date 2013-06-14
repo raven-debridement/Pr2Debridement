@@ -14,14 +14,22 @@ class ImageDetectionClass():
       def __init__(self):
             #PointStamped list
             self.cancerPoints = []
+            #gripper pose
+            self.gripperPose = None
+
+
             #Lock so two arms can access one ImageDetectionClass
             self.lock = Lock()
 
+            # Temporary. Will eventually be placed with real image detection
             rospy.Subscriber('stereo_points_3d', PointStamped, self.stereoCallback)
 
             #rospy.spin()
 
       def stereoCallback(self, msg):
+            """
+            Temporary.
+            """
             self.lock.acquire()
             self.cancerPoints.append(msg)
             self.lock.release()
@@ -30,6 +38,9 @@ class ImageDetectionClass():
             return len(self.cancerPoints) > 0
       
       def getCancerPoint(self):
+            """
+            May update to take argument currPos, and then choose cancer closest to currPos
+            """
             if not self.hasFoundCancer():
                   return None
 
@@ -39,7 +50,13 @@ class ImageDetectionClass():
             self.lock.release()
 
             return cancerPoint
+      
+      def hasFoundGripper(self):
+            return (self.gripperPose != None)
 
+      def getGripperPose(self):
+            
+      
       
 
             

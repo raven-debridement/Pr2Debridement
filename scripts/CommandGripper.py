@@ -5,12 +5,11 @@ import roslib
 roslib.load_manifest('Pr2Debridement')
 import rospy
 import sys
-import tf
 import actionlib
 from actionlib_msgs.msg import *
 from pr2_controllers_msgs.msg import *
 
-from ConstantsClass import *
+from Constants import *
 
 class CommandGripperClass():
     def __init__(self, gripperName):
