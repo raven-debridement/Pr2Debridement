@@ -9,9 +9,9 @@ class ConstantsClass:
     class ArmName:
         Left = 'l_arm'
         Right = 'r_arm'
-        
+
     class ControllerName:
-        JointTractoryAction = 'controller'
+        JointTrajectoryAction = 'controller'
         CartesianTwist = 'twist_controller'
 
     # ArmName + '_' + ControllerName = full controller name
@@ -23,3 +23,5 @@ class ConstantsClass:
     class ToolFrame:
         Left = 'l_gripper_tool_frame'
         Right = 'r_gripper_tool_frame'
+        
+    StereoName = 'stereo_points_3d'

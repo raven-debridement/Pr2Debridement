@@ -19,6 +19,8 @@
   
   <depend package="trajectory_msgs"/>
   <depend package="std_msgs"/>
+
+  <depend package="pr2_controller_manager"/>
 </package>
 
 

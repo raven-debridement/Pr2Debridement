@@ -11,7 +11,7 @@ roslib.load_manifest('Pr2Debridement')
 import rospy
 import pr2_controller_manager.pr2_controller_manager_interface
 
-import ConstantsClass
+from ConstantsClass import *
 
 class PR2CMClient:
     '''
@@ -34,8 +34,8 @@ class PR2CMClient:
     @staticmethod
     def stop_arm_controller(arm_name):
         success = True
-        success &= pr2_controller_manager.pr2_controller_manager_interface.stop_controller(arm_name + '_' + ControllerName.JointTrajectoryAction)
-        success &= pr2_controller_manager.pr2_controller_manager_interface.stop_controller(arm_name + '_' + ControllerName.CartesianTwist)        
+        success &= pr2_controller_manager.pr2_controller_manager_interface.stop_controller(arm_name + '_' + ConstantsClass.ControllerName.JointTrajectoryAction)
+        success &= pr2_controller_manager.pr2_controller_manager_interface.stop_controller(arm_name + '_' + ConstantsClass.ControllerName.CartesianTwist)        
         return success
 
     @staticmethod
