@@ -64,10 +64,27 @@ def reverseQuaternion(quat):
 
     return newQuat
 
+def convertToSameFrameAndTime(ps0, ps1, listener):
+    """
+    Converts point 0 and point 1 to the same frame
+    """
+    
+    ps0frame, ps1frame = ps0.header.frame_id, ps1.header.frame_id
+
+    # need to be on same time so transformation will work
+    commonTime = listener.getLatestCommonTime(ps0frame, ps1frame)
+    ps0.header.stamp = ps1.header.stamp = commonTime
+    
+    return (ps0, listener.transformPoint(ps0frame, ps1))
+
+
 def euclidianDistance(ps0, ps1):
     """
     Returns euclidean distance between two PointStamped
     """
+    # must be in same reference frame
+    ps0, ps1 = convertToSameFrameAndTime(ps0, ps1, tf.TransformListener())
+
     x0, y0, z0 = ps0.point.x, ps0.point.y, ps0.point.z
     x1, y1, z1 = ps1.point.x, ps1.point.y, ps1.point.z
 

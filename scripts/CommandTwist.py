@@ -11,6 +11,7 @@ import tf
 from PR2CMClient import *
 
 from Constants import *
+import Util
 
 class CommandTwistClass():
     def __init__(self, armName, scale=.5):
@@ -51,7 +52,7 @@ class CommandTwistClass():
         if not self.isRunning():
             return False
 
-        currPoint, desPoint = self.convertToSameFrameAndTime(currPoint, desPoint)
+        currPoint, desPoint = Util.convertToSameFrameAndTime(currPoint, desPoint, self.listener)
 
         twistCommand = Twist()
 
@@ -66,21 +67,6 @@ class CommandTwistClass():
         self.pub.publish(twistCommand)
         
         return True
-
-
-    def convertToSameFrameAndTime(self, point0, point1):
-        """
-        Converts point 0 and point 1 to the same frame
-        """
-        
-        p0frame, p1frame = point0.header.frame_id, point1.header.frame_id
-
-        # need to be on same time so transformation will work
-        commonTime = self.listener.getLatestCommonTime(p0frame, p1frame)
-        point0.header.stamp = point1.header.stamp = commonTime
-
-        return (point0, self.listener.transformPoint(p0frame, point1))
-
     
     def stop(self):
         """
@@ -117,7 +103,7 @@ def test():
     rospy.Subscriber(ConstantsClass.StereoName, PointStamped, stereoCallback)
 
     ctwist = CommandTwistClass(ConstantsClass.ArmName.Left)
-
+    ctwist.startup()
     """
     pub = rospy.Publisher('/l_arm_controller/command', Twist)
     desired_twist = Twist()
