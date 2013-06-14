@@ -19,22 +19,24 @@ def xyzAndFrameToPointStamped(x, y, z, frame_id):
 
 def pointStampedToPoseStamped(pointStamped):
     """
-    Quaternion of new poseStamped is left as default
+    Quaternion of new poseStamped defaults to no rotation
     """
     poseStamped = PoseStamped()
     poseStamped.header = point.header
-    poseStamped.pose.point.x = pointStamped.point.x
-    poseStamped.pose.point.y = pointStamped.point.y
-    poseStamped.pose.point.z = pointStamped.point.z
+    poseStamped.pose.position.x = pointStamped.point.x
+    poseStamped.pose.position.y = pointStamped.point.y
+    poseStamped.pose.position.z = pointStamped.point.z
+
+    poseStamped.pose.orienation.w = 1
 
     return poseStamped
 
 def poseStampedToPointStamped(poseStamped):
     pointStamped = PointStamped()
     pointStamped.header = poseStamped.header
-    pointStamped.point.x = poseStamped.pose.point.x
-    pointStamped.point.y = poseStamped.pose.point.y
-    pointStamped.point.z = poseStamped.pose.point.z
+    pointStamped.point.x = poseStamped.pose.position.x
+    pointStamped.point.y = poseStamped.pose.position.y
+    pointStamped.point.z = poseStamped.pose.position.z
 
 def reverseQuaternion(quat):
     newQuat = Quaternion()

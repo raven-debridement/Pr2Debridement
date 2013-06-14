@@ -5,7 +5,7 @@ import roslib
 roslib.load_manifest('Pr2Debridement')
 import rospy
 import sys
-from geometry_msgs.msg import Twist, PointStamped
+from geometry_msgs.msg import *
 import tf
 
 from PR2CMClient import *
