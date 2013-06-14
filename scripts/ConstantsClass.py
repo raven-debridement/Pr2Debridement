@@ -7,14 +7,18 @@ import rospy
 
 class ConstantsClass:
     class ArmName:
-        LeftArm = 'l_arm'
-        RightArm = 'r_arm'
+        Left = 'l_arm'
+        Right = 'r_arm'
         
     class ControllerName:
         JointTractoryAction = 'controller'
         CartesianTwist = 'twist_controller'
 
     # ArmName + '_' + ControllerName = full controller name
+
+    class GripperName:
+        Left = 'l_gripper'
+        Right = 'r_gripper'
 
     class ToolFrame:
         Left = 'l_gripper_tool_frame'
