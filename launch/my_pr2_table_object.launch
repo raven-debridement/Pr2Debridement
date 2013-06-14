@@ -12,10 +12,10 @@
     <node name="gazebo_gui" pkg="gazebo" type="gui" respawn="false" output="screen"/>
   </group>
 
-  <include file="/home/gkahn/Berkeley/Research/ros_ws/sandbox/my_controller_pkg/launch/my_pr2.launch"/>
+  <include file="$(find Pr2Debridement)/launch/my_pr2.launch"/>
 
   <!-- -J r_upper_arm_roll_joint -1.64 -J r_shoulder_pan_joint -2.135 -J r_shoulder_lift_joint -0.02 -J r_forearm_roll_joint -1.64 -J r_elbow_flex_joint -2.07 -J r_wrist_flex_joint -1.68 -J r_wrist_roll_joint 1.40 --> 
-  <!--include file="/home/gkahn/Berkeley/Research/ros_ws/sandbox/my_controller_pkg/launch/my_pr2_default_controllers.launch" /-->
+  <!--include file="$(find Pr2Debridement)/launch/my_pr2_default_controllers.launch" /-->
 
   <!-- spawn table and tabletop object-->
   <param name="table_description" 

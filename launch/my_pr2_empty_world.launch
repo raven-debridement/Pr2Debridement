@@ -12,7 +12,7 @@
   </include>
 
   <!-- start pr2 robot -->
-  <include file="/home/gkahn/Berkeley/Research/ros_ws/sandbox/my_controller_pkg/launch/my_pr2.launch"/>
+  <include file="$(find Pr2Debridement)/launch/my_pr2.launch"/>
 
 </launch>
 
