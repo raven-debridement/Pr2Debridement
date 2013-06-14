@@ -14,6 +14,8 @@ class ConstantsClass:
         JointTractoryAction = 'controller'
         CartesianTwist = 'twist_controller'
 
+    # ArmName + '_' + ControllerName = full controller name
+
     class ToolFrame:
         Left = 'l_gripper_tool_frame'
         Right = 'r_gripper_tool_frame'
