@@ -10,17 +10,19 @@
   <url>http://ros.org/wiki/Pr2Debridement</url>
   <depend package="roscpp"/>
   <depend package="rospy"/>
-  <depend package="geometry_msgs"/>
   <depend package="tf"/>
   <depend package="actionlib"/>
+  <depend package="pr2_controller_manager"/>
+
+
+  <depend package="geometry_msgs"/>
   <depend package="actionlib_msgs"/>
   <depend package="pr2_controllers_msgs"/>
-  <depend package="kinematics_msgs"/>
-  
+  <depend package="kinematics_msgs"/>  
   <depend package="trajectory_msgs"/>
   <depend package="std_msgs"/>
+  <depend package="sensor_msgs"/>
 
-  <depend package="pr2_controller_manager"/>
 </package>
 
 
