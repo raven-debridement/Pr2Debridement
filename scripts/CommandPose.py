@@ -34,14 +34,12 @@ class CommandPoseClass:
         pubTopic = '/' + armName + '_' + ConstantsClass.ControllerName.CartesianPose + '/command_pose'
         self.pub = rospy.Publisher(pubTopic, PoseStamped)
 
-        self.startup()
-
     def startup(self):
         """
         Switches to CartesianPose controller.
         Store success in running.
         """
-        self.running = PR2CMClient.change_arm_controller(self.armName, ConstantsClass.ControllerName.CartesianPose)
+        self.running = PR2CMClient.change_arm_controller(self.armName, ConstantsClass.ControllerName.JTCartesian)
         
     def isRunning(self):
         return self.running
@@ -66,12 +64,3 @@ class CommandPoseClass:
         
         return True
 
-    def stop(self):
-        """
-        Stop controller immediately -- warning, this may cause arm to drop
-        """
-        
-        if not self.isRunning():
-            return
-
-        self.running = PR2CMClient.stop_arm_controller(self.armName, ConstantsClass.ControllerName.CartesianPose)

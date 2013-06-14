@@ -31,7 +31,7 @@ class PR2CMClient:
     @staticmethod
     def stop_arm_controller(arm_name):
         success = True
-        success &= pr2_controller_manager.pr2_controller_manager_interface.stop_controller(arm_name + '_' + ConstantsClass.ControllerName.CartesianPose)
+        success &= pr2_controller_manager.pr2_controller_manager_interface.stop_controller(arm_name + '_' + ConstantsClass.ControllerName.JTCartesian)
         success &= pr2_controller_manager.pr2_controller_manager_interface.stop_controller(arm_name + '_' + ConstantsClass.ControllerName.CartesianTwist)        
         return success
 

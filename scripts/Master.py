@@ -63,11 +63,10 @@ class MasterClass():
             # threshold is distance between gripper and cancer before declare success
             threshold = .05
             self.commandTwist.startup()
-            if self.commandTwist.isRunning():
+            while Util.euclideanDistance(gripperPointStamped, cancerPointStamped) > threshold:
                 gripperPointStamped = self.imageDetector.getGripperPoint(self.gripperName)
-                self.commandTwist.driveTowardPoint(gripperPointStamped, cancerPointStamped)
-            else:
-                continue
+                if not self.commandTwist.driveTowardPoint(gripperPointStamped, cancerPointStamped):
+                    continue
 
             # close gripper (but not all the way)
             if not self.commandGripper.setGripper(.5):

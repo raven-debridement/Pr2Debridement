@@ -11,7 +11,7 @@ class ConstantsClass:
         Right = 'r_arm'
 
     class ControllerName:
-        CartesianPose = 'controller'
+        JTCartesian = 'controller'
         CartesianTwist = 'twist_controller'
 
     # ArmName + '_' + ControllerName = full controller name
