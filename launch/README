@@ -1,0 +1,8 @@
+LAUNCH README
+
+The two launch files to call with roslaunch are:
+
+my_pr2_empty_world.launch
+my_pr2_table_object.launch
+
+Both of these files launch the pr2 with the twist arm controllers RUNNING and the joint control trajectory controllers LOADED. This is so that the controllers can be programmatically switched between easily
