@@ -36,14 +36,52 @@ class MasterClass():
 
     def run(self):
         while True:
+            # can change rate
+            rospy.sleep(.1)
 
+            # find cancer point
             if self.imageDetector.hasFoundCancer():
                 cancerPointStamped = self.imageDetector.getCancerPoint()
+            else:
+                continue
+
+            # find gripper point
+            if self.imageDetector.hasFoundGripper(self.gripperName):
+                gripperPointStamped = self.imageDetector.getGripperPoint(self.gripperName)
+            else:
+                continue
+
+            # self.commandPose if/else block needs to be added
+            # to get near cancerPointStamped
+                                
+            # open gripper
+            if not self.commandGripper.openGripper():
+                continue
+
+            # visual servo to get to cancer point
+
+            # threshold is distance between gripper and cancer before declare success
+            threshold = .05
+            self.commandTwist.startup()
+            if self.commandTwist.isRunning():
+                gripperPointStamped = self.imageDetector.getGripperPoint(self.gripperName)
+                self.commandTwist.driveTowardPoint(gripperPointStamped, cancerPointStamped)
+            else:
+                continue
+
+            # close gripper (but not all the way)
+            if not self.commandGripper.setGripper(.5):
+                continue
+
+            # self.commandPose if/else block needs to be added
+            # to get back to receptacle
             
-            
+            # open gripper to drop off
+            if not self.commandGripper.openGripper():
+                continue
+
+
     
             #use self.commandPose(...) to get near cancerPointStamped
                 
 
-            # can change rate
-            rospy.sleep(.1)

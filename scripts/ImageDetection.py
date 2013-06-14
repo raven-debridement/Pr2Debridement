@@ -9,6 +9,8 @@ from geometry_msgs.msg import Twist, PointStamped, PoseStamped
 from sensor_msgs.msg import Image
 import tf
 
+from Util import *
+
 from threading import *
 
 class ImageDetectionClass():
@@ -61,6 +63,8 @@ class ImageDetectionClass():
       def getCancerPoint(self):
             """
             May update to take argument currPos, and then choose cancer closest to currPos
+            
+            Also, keep track of cancer points and not cancer poses because we assume the cancer will be on a flat table. May have to reevaluate this assumption
             """
             if not self.hasFoundCancer():
                   return None
@@ -93,7 +97,14 @@ class ImageDetectionClass():
             else:
                   return self.rightGripperPose
 
-      
+      def getGripperPoint(self, gripperName):
+            """
+            gripperName must be from ConstantsClass.GripperName
+            """
+            if not self.hasFoundGripper(gripperName):
+                  return None
+
+            return Util.poseStampedToPointStamped(self.getGripperPose(gripperName))
       
 
             

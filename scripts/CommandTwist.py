@@ -14,6 +14,9 @@ from Constants import *
 
 class CommandTwistClass():
     def __init__(self, armName, scale=.5):
+        """
+        Must call startup before calling driveTowardPoint
+        """
         self.scale = scale
         self.armName = armName
         self.running = False
@@ -21,7 +24,6 @@ class CommandTwistClass():
         pubTopic = '/' + armName + '_' + ConstantsClass.ControllerName.CartesianTwist + '/command'
         self.pub = rospy.Publisher(pubTopic, Twist)
 
-        self.startup()
 
     def startup(self):
         """
