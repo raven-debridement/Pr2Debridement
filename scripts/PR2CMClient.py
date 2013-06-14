@@ -11,18 +11,13 @@ roslib.load_manifest('Pr2Debridement')
 import rospy
 import pr2_controller_manager.pr2_controller_manager_interface
 
+import ConstantsClass
+
 class PR2CMClient:
     '''
     This class switches the arm controllers between JointTrajectoryAction controllers and CartesianTwist controllers. The JointTrajectoryAction controllers are default on the PR2 and can be used with the move_arm package. The CartesianTwist controllers are not default, but are useful for visual servoing, where commanding the velocity of the end effector is necessary
     '''
 
-    class ArmName:
-        LeftArm = 'l_arm'
-        RightArm = 'r_arm'
-        
-    class ControllerName:
-        JointTractoryAction = 'controller'
-        CartesianTwist = 'twist_controller'
 
     
 
