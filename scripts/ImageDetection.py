@@ -20,6 +20,8 @@ class ImageDetectionClass():
             #gripper pose
             self.leftGripperPose = None
             self.rightGripperPose = None
+            #receptacle pose
+            self.receptaclePose = None
 
             # may only temporarily need
             self.listener = tf.TransformListener()
@@ -106,5 +108,13 @@ class ImageDetectionClass():
 
             return Util.poseStampedToPointStamped(self.getGripperPose(gripperName))
       
+      
+      def hasFoundReceptacle(self):
+            return (self.receptaclePose != None)
 
+      def getReceptaclePose(self):
+            return self.receptaclePose
+
+      def getReceptaclePoint(self):
+            return Util.poseStampedToPointStamped(self.receptaclePose)
             
