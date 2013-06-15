@@ -49,13 +49,14 @@ class CommandTwistClass():
 
         currPoint -- PointStamped current position of gripper
         desPoint -- PointStamped desired position of gripper
-
-        Returns True if successfully published
         """
         if not self.isRunning():
-            return False
+            return
 
-        currPoint, desPoint = Util.convertToSameFrameAndTime(currPoint, desPoint, self.listener)
+        try:
+            currPoint, desPoint = Util.convertToSameFrameAndTime(currPoint, desPoint, self.listener)
+        except tf.Exception:
+            return
 
         twistCommand = Twist()
 
@@ -68,8 +69,6 @@ class CommandTwistClass():
         twistCommand.angular.z = 0
 
         self.pub.publish(twistCommand)
-        
-        return True
     
     def stop(self):
         """

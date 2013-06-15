@@ -104,7 +104,8 @@ class MasterClass():
             while euclideanDistance(gripperPoint, cancerPoint, self.listener) > threshold:
                 rospy.loginfo(euclideanDistance(gripperPoint, cancerPoint, self.listener))
                 gripperPoint = self.imageDetector.getGripperPoint(self.gripperName)
-                if (not self.commandTwist.driveTowardPoint(gripperPoint, cancerPoint)) or (timeout.hasTimedOut()):
+                self.commandTwist.driveTowardPoint(gripperPoint, cancerPoint)
+                if timeout.hasTimedOut():
                     success = False
                     break
                 #determines the rate

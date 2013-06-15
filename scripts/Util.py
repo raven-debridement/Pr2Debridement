@@ -105,7 +105,10 @@ def euclideanDistance(ps0, ps1, listener=None):
     """
     # must be in same reference frame
     if listener != None:
-        ps0, ps1 = convertToSameFrameAndTime(ps0, ps1, listener)
+        try:
+            ps0, ps1 = convertToSameFrameAndTime(ps0, ps1, listener)
+        except tf.Exception:
+            return float("inf")
 
     x0, y0, z0 = ps0.point.x, ps0.point.y, ps0.point.z
     x1, y1, z1 = ps1.point.x, ps1.point.y, ps1.point.z
