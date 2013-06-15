@@ -122,6 +122,28 @@ class MasterClass():
             if not self.commandGripper.closeGripper():
                 continue
 
+            
+            rospy.loginfo('Moving vertical with cancer')
+            # move straight up from the table
+            # move to nearCancerPoint
+            self.commandPose.goToPose(nearCancerPose)
+
+            success = True
+            timeout.start()
+            while euclideanDistance(gripperPoint, nearCancerPoint,self.listener) > threshold:
+                rospy.loginfo(euclideanDistance(gripperPoint, nearCancerPoint,self.listener))
+                gripperPoint = self.imageDetector.getGripperPoint(self.gripperName)
+                if timeout.hasTimedOut():
+                    success = False
+                    break
+                rospy.sleep(.1)
+                
+            if not success:
+                continue
+
+
+
+
 
             rospy.loginfo('Moving to the receptacle')
             # self.commandPose if/else block needs to be added
