@@ -13,6 +13,7 @@ from CommandPose import *
 from CommandTwist import *
 from Constants import *
 from ImageDetection import *
+from Util import *
 
 class MasterClass():
     def __init__(self, armName, imageDetector):
@@ -23,10 +24,12 @@ class MasterClass():
         """
         self.armName = armName
         
-        if (armName == Constants.ArmName.Left):
+        if (armName == ConstantsClass.ArmName.Left):
             self.gripperName = ConstantsClass.GripperName.Left
         else:
             self.gripperName = ConstantsClass.GripperName.Right
+
+        self.listener = tf.TransformListener()
 
         self.imageDetector = imageDetector
         self.commandGripper = CommandGripperClass(self.gripperName)
@@ -36,15 +39,16 @@ class MasterClass():
     def run(self):
         while True:
             # can change rate
-            rospy.sleep(.1)
+            rospy.sleep(.5)
 
             # timeout class with 15 second timeout
-            timeout = TimeoutClass(rospy.Duration(15))
+            timeout = TimeoutClass(10)
 
             rospy.loginfo('Searching for cancer point')
-            # find cancer point
+            # find cancer point and pose
             if self.imageDetector.hasFoundCancer():
-                cancerPoint = self.imageDetector.getCancerPoint()
+                cancerPose = self.imageDetector.getCancerPose()
+                cancerPoint = poseStampedToPointStamped(cancerPose)
             else:
                 continue
 
@@ -62,13 +66,17 @@ class MasterClass():
             threshold = .05
             self.commandPose.startup()
             #### STUB: REPLACE WITH CORRECT ###
-            nearCancerPose = PoseStamped()
+            #nearCancerPose = PoseStamped()
+            nearCancerPose = reversePoseStamped(cancerPose)
+            nearCancerPose.pose.position.z += .2
+            nearCancerPoint = poseStampedToPointStamped(nearCancerPose)
             ###################################
             self.commandPose.goToPose(nearCancerPose)
 
             success = True
             timeout.start()
-            while euclideanDistance(gripperPoint, nearCancerPoint) > threshold:
+            while euclideanDistance(gripperPoint, nearCancerPoint,self.listener) > threshold:
+                rospy.loginfo(euclideanDistance(gripperPoint, nearCancerPoint,self.listener))
                 gripperPoint = self.imageDetector.getGripperPoint(self.gripperName)
                 if timeout.hasTimedOut():
                     success = False
@@ -78,34 +86,39 @@ class MasterClass():
             if not success:
                 continue
 
-
+            rospy.sleep(.5)
             rospy.loginfo('Opening the gripper')
             # open gripper
-            if not self.commandGripperC.openGripper():
+            if not self.commandGripper.openGripper():
                 continue
 
 
             rospy.loginfo('Visual servoing to the cancer point')
             # visual servo to get to cancer point
             # threshold is distance between gripper and cancer before declare success
-            threshold = .05
+            threshold = .15
             self.commandTwist.startup()
 
             success = True
             timeout.start()
-            while euclideanDistance(gripperPoint, cancerPoint) > threshold:
+            while euclideanDistance(gripperPoint, cancerPoint, self.listener) > threshold:
+                rospy.loginfo(euclideanDistance(gripperPoint, cancerPoint, self.listener))
                 gripperPoint = self.imageDetector.getGripperPoint(self.gripperName)
                 if (not self.commandTwist.driveTowardPoint(gripperPoint, cancerPoint)) or (timeout.hasTimedOut()):
                     success = False
                     break
+                #determines the rate
+                rospy.sleep(.05)
 
-            if not success:
+            if success:
+                self.commandTwist.stop()
+            else:
                 continue
 
-
+            rospy.sleep(.5)
             rospy.loginfo('Closing the gripper')
-            # close gripper (but not all the way)
-            if not self.commandGripper.setGripper(.5):
+            # close gripper (consider not all the way)
+            if not self.commandGripper.closeGripper():
                 continue
 
 
@@ -115,13 +128,17 @@ class MasterClass():
             if self.imageDetector.hasFoundReceptacle():
                 receptaclePoint = self.imageDetector.getReceptaclePoint()
                 
-                threshold = .05
+                receptaclePose = reversePoseStamped(self.imageDetector.getReceptaclePose())
+                receptaclePose.pose.position.z += .1
+                
+                threshold = .15
                 self.commandPose.startup()
                 self.commandPose.goToPose(receptaclePose)
 
                 success = True
                 timeout.start()
-                while euclideanDistance(gripperPoint, receptaclePoint) > threshold:
+                while euclideanDistance(gripperPoint, receptaclePoint, self.listener) > threshold:
+                    rospy.loginfo(euclideanDistance(gripperPoint, receptaclePoint, self.listener))
                     gripperPoint = self.imageDetector.getGripperPoint(self.gripperName)
                     if timeout.hasTimedOut():
                         success = False
@@ -140,3 +157,12 @@ class MasterClass():
                 continue
 
 
+
+def test():
+    rospy.init_node('master_node')
+    imageDetector = ImageDetectionClass()
+    master = MasterClass(ConstantsClass.ArmName.Left, imageDetector)
+    master.run()
+
+if __name__ == '__main__':
+    test()

@@ -47,7 +47,7 @@ class CommandGripperClass():
             print('failed!')
         """
 
-        return (self.client.get_state() == GoalStatus.SUCCEEDED)
+        return ((self.client.get_state() == GoalStatus.SUCCEEDED) or result.stalled)
 
 
 

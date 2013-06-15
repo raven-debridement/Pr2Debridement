@@ -76,20 +76,53 @@ class CommandPoseClass:
 
 
 def test():
+
+    
+    import tf.transformations as tft
     
     def stereoCallback(msg):
         test.desiredPose = PoseStamped()
+        
+        x,y,z = msg.point.x, msg.point.y, msg.point.z
+
+        eulerx = 0
+        eulery = pi/2
+        eulerz = 0
+        quat = tft.quaternion_from_euler(eulerx,eulery,eulerz)
+        test.desiredPose.pose.orientation.w = quat[3]
+        test.desiredPose.pose.orientation.x = quat[0]
+        test.desiredPose.pose.orientation.y = quat[1]
+        test.desiredPose.pose.orientation.z = quat[2]
+        """
         test.desiredPose.pose.orientation.w = .5**.5
         test.desiredPose.pose.orientation.x = 0
         test.desiredPose.pose.orientation.y = .5**.5
         test.desiredPose.pose.orientation.z = 0
+        """
+        #trans_matrix = tft.translation_matrix([eulerx, eulery, eulerz])
+        #print(trans_matrix)
         
+        #newxyz = np.dot(trans_matrix, np.array([x,y,z,1]))
+        #print(np.array([x,y,z,1]))
+        #print(newxyz)
+        #msg.point.x, msg.point.y, msg.point.z = newxyz[2], newxyz[0], newxyz[1]
+
         test.desiredPose.header = msg.header
         test.desiredPose.pose.position = msg.point
         test.desiredPose.pose.position.z += .15
 
     rospy.init_node('test_command_pose')
     listener = tf.TransformListener()
+
+    """
+    quat = tft.quaternion_from_euler(0,pi/2,0,'sxyz')
+    print(quat)
+    euler = tft.unit_vector(tft.euler_from_quaternion([0, .5**.5,0,.5**.5]))
+    trans_matrix = tft.translation_matrix(euler)
+    print(euler)
+    print(trans_matrix)
+    return
+    """
 
     test.desiredPose = None
 
@@ -104,7 +137,7 @@ def test():
     commandPose = CommandPoseClass(ConstantsClass.ArmName.Left)
     commandPose.startup()
 
-    timeout = TimeoutClass(rospy.Duration(10))
+    timeout = TimeoutClass(4)
 
     while commandPose.isRunning():
         rospy.loginfo('outer loop')

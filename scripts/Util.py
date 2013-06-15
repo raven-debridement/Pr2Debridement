@@ -38,7 +38,7 @@ def pointStampedToPoseStamped(pointStamped, orientation=None):
     Quaternion of new poseStamped defaults to no rotation
     """
     poseStamped = PoseStamped()
-    poseStamped.header = point.header
+    poseStamped.header = pointStamped.header
     poseStamped.pose.position.x = pointStamped.point.x
     poseStamped.pose.position.y = pointStamped.point.y
     poseStamped.pose.position.z = pointStamped.point.z
@@ -69,6 +69,9 @@ def makeQuaternion(w, x, y, z):
 
     return newQuat
     
+def reversePoseStamped(poseStamped):
+    poseStamped.pose.orientation = reverseQuaternion(poseStamped.pose.orientation)
+    return poseStamped
 
 def reverseQuaternion(quat):
     newQuat = Quaternion()
@@ -92,7 +95,8 @@ def convertToSameFrameAndTime(ps0, ps1, listener):
     commonTime = listener.getLatestCommonTime(ps0frame, ps1frame)
     ps0.header.stamp = ps1.header.stamp = commonTime
 
-    return (ps0, listener.transformPoint(ps0frame, ps1))
+    return (listener.transformPoint(ps1frame, ps0), ps1)
+    #return (ps0, listener.transformPoint(ps0frame, ps1))
 
 
 def euclideanDistance(ps0, ps1, listener=None):
@@ -133,7 +137,7 @@ class TimeoutClass():
         self.timeoutTime = timeoutTime
 
     def start(self):
-        self.endTime = rospy.Time.now() + self.timeoutTime
+        self.endTime = rospy.Time.now() + rospy.Duration(self.timeoutTime)
 
     def hasTimedOut(self):
         return rospy.Time.now() > self.endTime 

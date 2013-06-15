@@ -31,7 +31,7 @@ class ImageDetectionClass():
                   self.normal = normal
             else:
                   # default to straight up
-                  self.normal = Util.newQuat(.5**.5, 0, -.5**.5, 0)
+                  self.normal = Util.makeQuaternion(.5**.5, 0, -.5**.5, 0)
 
 
             #Lock so two arms can access one ImageDetectionClass
@@ -45,15 +45,22 @@ class ImageDetectionClass():
 
       def stereoCallback(self, msg):
             """
-            Temporary.
+            Temporary. First click sets receptaclePoint, all others are cancerPoints
             """
-            self.cancerLock.acquire()
-            self.cancerPoints.append(msg)
-            self.cancerLock.release()
+            if self.receptaclePoint == None:
+                  self.receptaclePoint = msg
+                  self.receptaclePoint.point.z += .1
+            else:
+                  self.cancerLock.acquire()
+                  self.cancerPoints.append(msg)
+                  self.cancerLock.release()
 
       def imageCallback(self, msg):
+            """
+            Temporary. Sets gripper poses to absolutely correct value
+            """
             # gripperPoses in own frames
-            rospy.loginfo('Image received')
+            #rospy.loginfo('Image received')
             rgp = PoseStamped()
             rgp.header.stamp = msg.header.stamp
             rgp.header.frame_id = ConstantsClass.ToolFrame.Right
@@ -64,7 +71,7 @@ class ImageDetectionClass():
             lgp.header.stamp = msg.header.stamp
             lgp.header.frame_id = ConstantsClass.ToolFrame.Left
             lgp.pose.orientation.w = 1
-            self.rightGripperPose = lgp
+            self.leftGripperPose = lgp
             
 
       def hasFoundCancer(self):
@@ -73,6 +80,8 @@ class ImageDetectionClass():
       def getCancerPose(self):
             """
             Returns cancer point plus the table normal as the orientation
+
+            Removes specific cancer from list
             """
             cancerPoint = self.getCancerPoint()
             return Util.pointStampedToPoseStamped(cancerPoint, self.normal)
@@ -81,7 +90,9 @@ class ImageDetectionClass():
             """
             May update to take argument currPos, and then choose cancer closest to currPos
             
-            Also, keep track of cancer points and not cancer poses because we assume the cancer will be on a flat table. May have to reevaluate this assumption
+            Also, keep track of cancer points and not cancer poses because we assume the cancer will be on a flat table.
+
+            Removes specific cancer from list
             """
             if not self.hasFoundCancer():
                   return None
@@ -129,7 +140,7 @@ class ImageDetectionClass():
       
       
       def hasFoundReceptacle(self):
-            return (self.receptaclePose != None)
+            return (self.receptaclePoint != None)
 
       def getReceptaclePose(self):
             """
@@ -143,6 +154,7 @@ class ImageDetectionClass():
             Returns PointStamped of the centroid of the receptacle
             """
             return self.receptaclePoint
+
             
 
 if __name__ == '__main__':
