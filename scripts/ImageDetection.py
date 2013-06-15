@@ -52,6 +52,7 @@ class ImageDetectionClass():
                   self.receptaclePoint.point.z += .1
             else:
                   self.cancerLock.acquire()
+                  msg.point.z -= .05 # this is half the "height" of the cancer/coke/w.e.
                   self.cancerPoints.append(msg)
                   self.cancerLock.release()
 

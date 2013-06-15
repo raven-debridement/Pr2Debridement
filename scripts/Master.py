@@ -96,7 +96,7 @@ class MasterClass():
             rospy.loginfo('Visual servoing to the cancer point')
             # visual servo to get to cancer point
             # threshold is distance between gripper and cancer before declare success
-            threshold = .15
+            threshold = .01
             self.commandTwist.startup()
 
             success = True

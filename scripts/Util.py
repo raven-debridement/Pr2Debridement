@@ -91,7 +91,7 @@ def convertToSameFrameAndTime(ps0, ps1, listener):
     ps0frame, ps1frame = ps0.header.frame_id, ps1.header.frame_id
 
     # need to be on same time so transformation will work
-    # sometimes exceptions are thrown, maybe deal with this
+    # sometimes exceptions are thrown, DEAL WITH THIS
     commonTime = listener.getLatestCommonTime(ps0frame, ps1frame)
     ps0.header.stamp = ps1.header.stamp = commonTime
 
