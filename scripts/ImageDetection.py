@@ -5,27 +5,34 @@ import roslib
 roslib.load_manifest('Pr2Debridement')
 import rospy
 import sys
-from geometry_msgs.msg import Twist, PointStamped, PoseStamped
+from geometry_msgs.msg import Twist, PointStamped, PoseStamped, Quaternion
 from sensor_msgs.msg import Image
 import tf
 
-from Util import *
+import Util
 from Constants import *
 
 from threading import *
 
 class ImageDetectionClass():
-      def __init__(self):
+      """
+      Used to detect cancer, grippers, and receptacle
+      """
+      def __init__(self, normal=None):
             #PointStamped list
             self.cancerPoints = []
-            #gripper pose
+            #gripper pose. Must both have frame_id of respective tool frame
             self.leftGripperPose = None
             self.rightGripperPose = None
-            #receptacle pose
-            self.receptaclePose = None
+            #receptacle point. Must have frame_id of global (or main camera) frame
+            self.receptaclePoint = None
+            #table normal. Must be according to global (or main camera) frame
+            if normal != None:
+                  self.normal = normal
+            else:
+                  # default to straight up
+                  self.normal = Util.newQuat(.5**.5, 0, -.5**.5, 0)
 
-            # may only temporarily need
-            self.listener = tf.TransformListener()
 
             #Lock so two arms can access one ImageDetectionClass
             self.cancerLock = Lock()
@@ -62,6 +69,13 @@ class ImageDetectionClass():
 
       def hasFoundCancer(self):
             return len(self.cancerPoints) > 0
+
+      def getCancerPose(self):
+            """
+            Returns cancer point plus the table normal as the orientation
+            """
+            cancerPoint = self.getCancerPoint()
+            return Util.pointStampedToPoseStamped(cancerPoint, self.normal)
       
       def getCancerPoint(self):
             """
@@ -91,6 +105,8 @@ class ImageDetectionClass():
       def getGripperPose(self, gripperName):
             """
             gripperName must be from ConstantsClass.GripperName
+
+            returns PoseStamped with frame_id of gripperName
             """
             if not self.hasFoundGripper(gripperName):
                   return None
@@ -103,6 +119,8 @@ class ImageDetectionClass():
       def getGripperPoint(self, gripperName):
             """
             gripperName must be from ConstantsClass.GripperName
+
+            returns PointStamped with frame_id of gripperName
             """
             if not self.hasFoundGripper(gripperName):
                   return None
@@ -114,10 +132,17 @@ class ImageDetectionClass():
             return (self.receptaclePose != None)
 
       def getReceptaclePose(self):
-            return self.receptaclePose
+            """
+            Returns PoseStamped with position of centroid of receptacle and
+            orientation of the table normal
+            """
+            return Util.pointStampedToPoseStamped(self.receptaclePoint, self.normal)
 
       def getReceptaclePoint(self):
-            return Util.poseStampedToPointStamped(self.receptaclePose)
+            """
+            Returns PointStamped of the centroid of the receptacle
+            """
+            return self.receptaclePoint
             
 
 if __name__ == '__main__':

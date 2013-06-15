@@ -38,6 +38,10 @@ class MasterClass():
             # can change rate
             rospy.sleep(.1)
 
+            # timeout class with 15 second timeout
+            timeout = TimeoutClass(15)
+
+            rospy.loginfo('Searching for cancer point')
             # find cancer point
             if self.imageDetector.hasFoundCancer():
                 cancerPoint = self.imageDetector.getCancerPoint()
@@ -45,7 +49,7 @@ class MasterClass():
                 continue
 
 
-
+            rospy.loginfo('Searching for ' + self.gripperName)
             # find gripper point
             if self.imageDetector.hasFoundGripper(self.gripperName):
                 gripperPoint = self.imageDetector.getGripperPoint(self.gripperName)
@@ -53,43 +57,59 @@ class MasterClass():
                 continue
 
 
-
-            # self.commandPose if/else block needs to be added
-            # to get near cancerPointStamped
+            rospy.loginfo('Moving to a point near the cancer point')
+            # go near cancer point
             threshold = .05
             self.commandPose.startup()
             #### STUB: REPLACE WITH CORRECT ###
             nearCancerPose = PoseStamped()
             ###################################
             self.commandPose.goToPose(nearCancerPose)
-            while Util.euclideanDistance(gripperPoint, nearCancerPoint) > threshold:
+
+            success = True
+            timeout.start()
+            while euclideanDistance(gripperPoint, nearCancerPoint) > threshold:
                 gripperPoint = self.imageDetector.getGripperPoint(self.gripperName)
-                # it may be better to have a timeout function instead
+                if timeout.hasTimedOut():
+                    success = False
+                    break
                 rospy.sleep(.1)
                 
-            
+            if not success:
+                continue
+
+
+            rospy.loginfo('Opening the gripper')
             # open gripper
             if not self.commandGripperC.openGripper():
                 continue
 
 
+            rospy.loginfo('Visual servoing to the cancer point')
             # visual servo to get to cancer point
             # threshold is distance between gripper and cancer before declare success
             threshold = .05
             self.commandTwist.startup()
-            while Util.euclideanDistance(gripperPoint, cancerPoint) > threshold:
+
+            success = True
+            timeout.start()
+            while euclideanDistance(gripperPoint, cancerPoint) > threshold:
                 gripperPoint = self.imageDetector.getGripperPoint(self.gripperName)
-                if not self.commandTwist.driveTowardPoint(gripperPoint, cancerPoint):
-                    continue
+                if (not self.commandTwist.driveTowardPoint(gripperPoint, cancerPoint)) or (timeout.hasTimedOut()):
+                    success = False
+                    break
+
+            if not success:
+                continue
 
 
-
+            rospy.loginfo('Closing the gripper')
             # close gripper (but not all the way)
             if not self.commandGripper.setGripper(.5):
                 continue
 
 
-
+            rospy.loginfo('Moving to the receptacle')
             # self.commandPose if/else block needs to be added
             # to get back to receptacle
             if self.imageDetector.hasFoundReceptacle():
@@ -98,15 +118,23 @@ class MasterClass():
                 threshold = .05
                 self.commandPose.startup()
                 self.commandPose.goToPose(receptaclePose)
-                while Util.euclideanDistance(gripperPoint, receptaclePoint) > threshold:
+
+                success = True
+                timeout.start()
+                while euclideanDistance(gripperPoint, receptaclePoint) > threshold:
                     gripperPoint = self.imageDetector.getGripperPoint(self.gripperName)
-                    # it may be better to have a timeout function instead
+                    if timeout.hasTimedOut():
+                        success = False
+                        break
                     rospy.sleep(.1)
             else:
                 continue
+
+            if not success:
+                continue
                                              
 
-
+            rospy.loginfo('Opening the gripper to drop in the receptacle')
             # open gripper to drop off
             if not self.commandGripper.openGripper():
                 continue

@@ -33,7 +33,6 @@ class CommandPoseClass:
     def __init__(self, armName):
         self.armName = armName
         self.running = False
-        self.listener = tf.TransformListener()
         pubTopic = '/' + armName + '_' + ConstantsClass.ControllerName.JTCartesian + '/command_pose'
         self.pub = rospy.Publisher(pubTopic, PoseStamped)
 
@@ -87,6 +86,7 @@ def test():
         
         test.desiredPose.header = msg.header
         test.desiredPose.pose.position = msg.point
+        test.desiredPose.pose.position.z += .15
 
     rospy.init_node('test_command_pose')
     listener = tf.TransformListener()
@@ -108,16 +108,17 @@ def test():
         rospy.loginfo('outer loop')
         if test.desiredPose != None:
             rospy.loginfo('inner loop')
-
+            
             
             gripperPose.header.stamp = rospy.Time.now()
 
             commandPose.goToPose(test.desiredPose)
+            rospy.loginfo('Going to pose')
+            while euclideanDistance(poseStampedToPointStamped(gripperPose), poseStampedToPointStamped(test.desiredPose),listener) > .01:
+                rospy.sleep(.05)
+            rospy.loginfo('At pose!')
             
-            #while euclidianDistance(poseStampedToPointStamped(gripperPose), poseStampedToPointStamped(test.desiredPose)) > .05:
-            #    rospy.sleep(.1)
-            
-        rospy.sleep(2.0)
+        rospy.sleep(.1)
 
  
 

@@ -33,7 +33,7 @@ def posAndOrientAndFrameToPoseStamped(x_trans, y_trans, z_trans, w, x_rot, y_rot
     return pStamped
 
 
-def pointStampedToPoseStamped(pointStamped):
+def pointStampedToPoseStamped(pointStamped, orientation=None):
     """
     Quaternion of new poseStamped defaults to no rotation
     """
@@ -43,7 +43,10 @@ def pointStampedToPoseStamped(pointStamped):
     poseStamped.pose.position.y = pointStamped.point.y
     poseStamped.pose.position.z = pointStamped.point.z
 
-    poseStamped.pose.orienation.w = 1
+    if orientation = None:
+        poseStamped.pose.orientation.w = 1
+    else:
+        poseStamped.pose.orientation = orientation
 
     return poseStamped
 
@@ -55,6 +58,17 @@ def poseStampedToPointStamped(poseStamped):
     pointStamped.point.z = poseStamped.pose.position.z
 
     return pointStamped
+
+def makeQuaternion(w, x, y, z):
+    newQuat = Quaternion()
+    
+    newQuat.w = w
+    newQuat.x = x
+    newQuat.y = y
+    newQuat.z = z
+
+    return newQuat
+    
 
 def reverseQuaternion(quat):
     newQuat = Quaternion()
@@ -74,21 +88,52 @@ def convertToSameFrameAndTime(ps0, ps1, listener):
     ps0frame, ps1frame = ps0.header.frame_id, ps1.header.frame_id
 
     # need to be on same time so transformation will work
-    listener.waitForTransform(ps0frame, ps1frame, rospy.Time.now(), rospy.Duration(10.0))
+    # sometimes exceptions are thrown, maybe deal with this
     commonTime = listener.getLatestCommonTime(ps0frame, ps1frame)
     ps0.header.stamp = ps1.header.stamp = commonTime
-    
+
     return (ps0, listener.transformPoint(ps0frame, ps1))
 
 
-def euclidianDistance(ps0, ps1):
+def euclideanDistance(ps0, ps1, listener=None):
     """
     Returns euclidean distance between two PointStamped
     """
     # must be in same reference frame
-    ps0, ps1 = convertToSameFrameAndTime(ps0, ps1, tf.TransformListener())
+    if listener != None:
+        ps0, ps1 = convertToSameFrameAndTime(ps0, ps1, listener)
 
     x0, y0, z0 = ps0.point.x, ps0.point.y, ps0.point.z
     x1, y1, z1 = ps1.point.x, ps1.point.y, ps1.point.z
 
     return ((x1-x0)**2 + (y1-y0)**2 + (z1-z0)**2)**.5
+
+def timeoutFunc(loopTest, update, timeout, sleepTime=.1):
+    """
+    Higher-order function
+
+    loopTest - must take one argument, which is the output of update
+    update - must take no arguments
+    timeout - time until failure
+
+    Output - True if loopTest(update()) returns False once
+    """
+    success = True
+    stopTime = rospy.Time.now() + timeout
+    
+    while loopTest(update()):
+        if rospy.Time.now() > stopTime:
+            return False
+        rospy.sleep(sleepTime)
+    
+    return success
+
+class TimeoutClass():
+    def __init__(timeoutTime):
+        self.timeoutTime = timeoutTime
+
+    def start():
+        self.endTime = rospy.Time.now() + timeoutTime
+
+    def hasTimedOut():
+        return rospy.Time.now() > self.endTime 

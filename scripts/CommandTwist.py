@@ -14,14 +14,17 @@ from Constants import *
 import Util
 
 class CommandTwistClass():
-    def __init__(self, armName, scale=.5):
+    def __init__(self, armName, listener=None, scale=.5):
         """
         Must call startup before calling driveTowardPoint
         """
         self.scale = scale
         self.armName = armName
         self.running = False
-        self.listener = tf.TransformListener()
+        if listener == None:
+            self.listener = tf.TransformListener()
+        else:
+            self.listener = listener
         pubTopic = '/' + armName + '_' + ConstantsClass.ControllerName.CartesianTwist + '/command'
         self.pub = rospy.Publisher(pubTopic, Twist)
 
