@@ -43,7 +43,7 @@ def pointStampedToPoseStamped(pointStamped, orientation=None):
     poseStamped.pose.position.y = pointStamped.point.y
     poseStamped.pose.position.z = pointStamped.point.z
 
-    if orientation = None:
+    if orientation == None:
         poseStamped.pose.orientation.w = 1
     else:
         poseStamped.pose.orientation = orientation
@@ -129,11 +129,11 @@ def timeoutFunc(loopTest, update, timeout, sleepTime=.1):
     return success
 
 class TimeoutClass():
-    def __init__(timeoutTime):
+    def __init__(self, timeoutTime):
         self.timeoutTime = timeoutTime
 
-    def start():
-        self.endTime = rospy.Time.now() + timeoutTime
+    def start(self):
+        self.endTime = rospy.Time.now() + self.timeoutTime
 
-    def hasTimedOut():
+    def hasTimedOut(self):
         return rospy.Time.now() > self.endTime 

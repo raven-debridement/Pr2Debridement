@@ -39,7 +39,7 @@ class MasterClass():
             rospy.sleep(.1)
 
             # timeout class with 15 second timeout
-            timeout = TimeoutClass(15)
+            timeout = TimeoutClass(rospy.Duration(15))
 
             rospy.loginfo('Searching for cancer point')
             # find cancer point

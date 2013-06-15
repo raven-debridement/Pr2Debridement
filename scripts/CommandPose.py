@@ -104,6 +104,8 @@ def test():
     commandPose = CommandPoseClass(ConstantsClass.ArmName.Left)
     commandPose.startup()
 
+    timeout = TimeoutClass(rospy.Duration(10))
+
     while commandPose.isRunning():
         rospy.loginfo('outer loop')
         if test.desiredPose != None:
@@ -114,7 +116,13 @@ def test():
 
             commandPose.goToPose(test.desiredPose)
             rospy.loginfo('Going to pose')
+
+            success = True
+            timeout.start()
             while euclideanDistance(poseStampedToPointStamped(gripperPose), poseStampedToPointStamped(test.desiredPose),listener) > .01:
+                if timeout.hasTimedOut():
+                    success = False
+                    break
                 rospy.sleep(.05)
             rospy.loginfo('At pose!')
             
