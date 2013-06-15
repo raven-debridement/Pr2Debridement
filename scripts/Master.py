@@ -68,7 +68,7 @@ class MasterClass():
             #### STUB: REPLACE WITH CORRECT ###
             #nearCancerPose = PoseStamped()
             nearCancerPose = reversePoseStamped(cancerPose)
-            nearCancerPose.pose.position.z += .2
+            nearCancerPose.pose.position.z += .1
             nearCancerPoint = poseStampedToPointStamped(nearCancerPose)
             ###################################
             self.commandPose.goToPose(nearCancerPose)
