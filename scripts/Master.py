@@ -126,6 +126,7 @@ class MasterClass():
             rospy.loginfo('Moving vertical with cancer')
             # move straight up from the table
             # move to nearCancerPoint
+            self.commandPose.startup()
             self.commandPose.goToPose(nearCancerPose)
 
             success = True
