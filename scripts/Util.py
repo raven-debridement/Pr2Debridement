@@ -112,6 +112,16 @@ def euclideanDistance(ps0, ps1, listener=None):
 
     return ((x1-x0)**2 + (y1-y0)**2 + (z1-z0)**2)**.5
 
+def withinTolerance(tolerance, *args):
+	"""
+	Checks that the absolute value of the tolerance.
+	May throw an exception if all args are not numbers.
+	"""
+	for arg in args:
+		if math.fabs(arg) > tolerance:
+			return False
+	return True
+
 def timeoutFunc(loopTest, update, timeout, sleepTime=.1):
     """
     Higher-order function

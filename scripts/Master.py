@@ -65,6 +65,8 @@ class MasterClass():
             # go near cancer point
             threshold = .05
             self.commandPose.startup()
+            #while not self.commandPose.isOriented():
+            #    rospy.sleep(.1)
             #### STUB: REPLACE WITH CORRECT ###
             #nearCancerPose = PoseStamped()
             nearCancerPose = reversePoseStamped(cancerPose)

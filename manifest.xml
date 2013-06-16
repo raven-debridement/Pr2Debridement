@@ -18,6 +18,7 @@
   <depend package="geometry_msgs"/>
   <depend package="actionlib_msgs"/>
   <depend package="pr2_controllers_msgs"/>
+  <depend package="robot_mechanism_controllers"/>
   <depend package="kinematics_msgs"/>  
   <depend package="trajectory_msgs"/>
   <depend package="std_msgs"/>

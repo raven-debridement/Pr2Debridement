@@ -1,19 +1,12 @@
 #!/usr/bin/env python
 
 # Python Arm Wrapper for the PR2
-# Robert Bosch 
-
-# Written by Adam Stambler with tons of help from the ros docs
-# Modifed by Sarah Osentoski to use IK w/ collision checking, to take in rotation information
-
-"""
-http://brown-ros-pkg.googlecode.com/svn/trunk/experimental/pr2_remotelab/ik_control/bin/arm.py
-"""
 
 import roslib; roslib.load_manifest('Pr2Debridement')
 import actionlib
 import rospy
 import pr2_controllers_msgs.msg
+from robot_mechanism_controllers.msg import JTCartesianControllerState
 #import geometry_msgs.msg
 import kinematics_msgs.msg
 import kinematics_msgs.srv
@@ -29,20 +22,43 @@ from Constants import *
 from PR2CMClient import *
 from Util import *
 
+CONTROLLER = ConstantsClass.ControllerName.JTCartesian
+PUBTOPIC = '/command_pose'
+SUBTOPIC = '/state'
+
 class CommandPoseClass:
     def __init__(self, armName):
         self.armName = armName
         self.running = False
-        pubTopic = '/' + armName + '_' + ConstantsClass.ControllerName.JTCartesian + '/command_pose'
+        pubTopic = '/' + armName + '_' + CONTROLLER + PUBTOPIC
         self.pub = rospy.Publisher(pubTopic, PoseStamped)
+        subTopic = '/' + armName + '_' + CONTROLLER + SUBTOPIC
+        self.tolerance = 0.01 # tolerance for orientation
 
     def startup(self):
         """
         Switches to CartesianPose controller.
         Store success in running.
         """
-        self.running = PR2CMClient.change_arm_controller(self.armName, ConstantsClass.ControllerName.JTCartesian)
-        
+        self.running = PR2CMClient.change_arm_controller(self.armName, CONTROLLER)
+        self.orient()
+
+    def orient(self, orientation = None):
+        """
+        Commands the gripper to keep the same position, but orient
+        itself so that it is pointed downward.
+
+        msg: A JTCartesianControllerState msg with the current state of the robot
+        orientation: An optional orientation, defaults to pointing downward
+        """
+	print "subscribing to state"
+        if orientation == None:
+            orientation = Quaternion()
+            orientation.w = 1
+        self.desOrientation = orientation
+        self._isOriented = False
+        self.sub = rospy.Subscriber(SUBTOPIC, JTCartesianControllerState, self._orientCb)
+
     def isRunning(self):
         return self.running
     
@@ -66,11 +82,34 @@ class CommandPoseClass:
         
         return True
 
+    def isOriented(self):
+        return self._isOriented
 
+    def _orientCb(self, msg):
+	rospy.loginfo("orientation:" + msg.x.pose.orientation)
+        if self.isOriented():
+            self.sub.unsubscribe()
+            return
 
+        if not self.isRunning():
+            return
 
+        curPose = msg.x.pose
+        frame_id = msg.x.header.frame_id
+        curOrt = curPose.orientation
 
+        if withinTolerance(curOrt.x - desOrientation.x, curOrt.y-desOrientation.y, curOrt.z-desOrientation.z,
+                           curOrt.w - desOrientation.w):
+            rospy.loginfo("Desired orientation reached")
+            self._isOriented = True
+            return
+        
+        cmd = PoseStamped()
+        cmd.header.frame_id = frame_id
+        cmd.pose.orientation = self.desOrientation
+        cmd.pose.position = curPose.position
 
+        self.pub.publish(cmd)
 
 
 
@@ -162,7 +201,9 @@ def test():
         rospy.sleep(.1)
 
  
-
+class State:
+    orienting = 1
+    goingToPose = 2
 
 
 if __name__ == '__main__':
