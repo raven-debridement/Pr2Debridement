@@ -1,0 +1,9 @@
+<launch>
+
+  <include file="$(find Pr2Debridement)/launch/my_pr2_table_object.launch" />
+
+  <include file="$(find stereo_click)/launch/wide_stereo_click.launch" />
+
+  <node name="point_head" pkg="simple_head" type="point_head"/>
+
+</launch>
