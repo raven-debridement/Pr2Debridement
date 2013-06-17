@@ -32,7 +32,7 @@
   <!-- Controllers that come up loaded -->
   <node name="default_controllers_loader"
   	pkg="pr2_controller_manager" type="spawner" output="screen"
-	args="--stopped r_arm_controller l_arm_controller" />
+	args="--stopped r_arm_pose_controller l_arm_pose_controller" />
 
   <!-- Nodes on top of the controllers -->
   <group ns="r_gripper_controller">

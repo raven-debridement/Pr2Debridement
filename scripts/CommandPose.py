@@ -156,7 +156,7 @@ def test():
                 if timeout.hasTimedOut():
                     success = False
                     break
-                rospy.sleep(.05)
+                rospy.sleep(.1)
             rospy.loginfo('At pose!')
             
         rospy.sleep(.1)

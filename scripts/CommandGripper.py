@@ -8,6 +8,8 @@ import sys
 import actionlib
 from actionlib_msgs.msg import *
 from pr2_controllers_msgs.msg import *
+from geometry_msgs.msg import WrenchStamped
+from gazebo_msgs.msg import *
 
 from Constants import *
 
@@ -23,6 +25,7 @@ class CommandGripperClass():
 
         self.client = actionlib.SimpleActionClient(gripperName + '_controller/gripper_action', Pr2GripperCommandAction)
 
+
     def openGripper(self):
         return self.setGripper(1)
 
@@ -36,7 +39,7 @@ class CommandGripperClass():
         self.client.send_goal(Pr2GripperCommandGoal(Pr2GripperCommand(position, self.effortLimit)))
         
         #temp fix
-        rospy.sleep(2)
+        rospy.sleep(3)
         return True
 
         self.client.wait_for_result()
@@ -52,7 +55,11 @@ class CommandGripperClass():
             print('failed!')
         """
 
-        return ((self.client.get_state() == GoalStatus.SUCCEEDED) or result.stalled)
+        return (result.reached_goal) or (result.stalled)
+
+
+
+
 
 
 

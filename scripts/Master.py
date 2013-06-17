@@ -7,6 +7,7 @@ import rospy
 import sys
 from geometry_msgs.msg import Twist, PointStamped
 import tf
+import random
 
 from CommandGripper import *
 from CommandPose import *
@@ -42,7 +43,7 @@ class MasterClass():
             rospy.sleep(.5)
 
             # timeout class with 15 second timeout
-            timeout = TimeoutClass(10)
+            timeout = TimeoutClass(100)
 
             rospy.loginfo('Searching for cancer point')
             # find cancer point and pose
@@ -65,18 +66,20 @@ class MasterClass():
             # go near cancer point
             threshold = .05
             self.commandPose.startup()
-            #### STUB: REPLACE WITH CORRECT ###
-            #nearCancerPose = PoseStamped()
             nearCancerPose = reversePoseStamped(cancerPose)
-            nearCancerPose.pose.position.z += .1
+            nearCancerPose.pose.position.z += .2
+            # Add noise! ################
+            #nearCancerPose.pose.position.x += .05#random.uniform(-.05,.05)
+            #nearCancerPose.pose.position.y += random.uniform(-.05,.05)
+            #nearCancerPose.pose.position.z += random.uniform(-.05,.05)
+            #############################
             nearCancerPoint = poseStampedToPointStamped(nearCancerPose)
-            ###################################
             self.commandPose.goToPose(nearCancerPose)
 
             success = True
             timeout.start()
             while euclideanDistance(gripperPoint, nearCancerPoint,self.listener) > threshold:
-                rospy.loginfo(euclideanDistance(gripperPoint, nearCancerPoint,self.listener))
+                #rospy.loginfo(euclideanDistance(gripperPoint, nearCancerPoint,self.listener))
                 gripperPoint = self.imageDetector.getGripperPoint(self.gripperName)
                 if timeout.hasTimedOut():
                     success = False
@@ -100,11 +103,14 @@ class MasterClass():
             self.commandTwist.startup()
 
             success = True
+            isCentered = False
             timeout.start()
             while euclideanDistance(gripperPoint, cancerPoint, self.listener) > threshold:
-                rospy.loginfo(euclideanDistance(gripperPoint, cancerPoint, self.listener))
+                #rospy.loginfo(euclideanDistance(gripperPoint, cancerPoint, self.listener))
+                if not isCentered and euclideanDistance(gripperPoint, cancerPoint, self.listener, zPlane=isCentered) < threshold:
+                    isCentered = True
                 gripperPoint = self.imageDetector.getGripperPoint(self.gripperName)
-                self.commandTwist.driveTowardPoint(gripperPoint, cancerPoint)
+                self.commandTwist.driveTowardPoint(gripperPoint, cancerPoint, zPlane=isCentered)
                 if timeout.hasTimedOut():
                     success = False
                     break

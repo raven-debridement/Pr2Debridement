@@ -40,7 +40,7 @@ class CommandTwistClass():
         return self.running
 
     
-    def driveTowardPoint(self, currPoint, desPoint):
+    def driveTowardPoint(self, currPoint, desPoint, xPlane=True,yPlane=True,zPlane=True):
         """
         Given the current gripper point and the desired gripper point,
         this commands the gripper to go towards the desiredPoint.
@@ -60,13 +60,18 @@ class CommandTwistClass():
 
         twistCommand = Twist()
 
-        twistCommand.linear.x = (desPoint.point.x - currPoint.point.x) * self.scale
-        twistCommand.linear.y = (desPoint.point.y - currPoint.point.y) * self.scale
-        twistCommand.linear.z = (desPoint.point.z - currPoint.point.z) * self.scale
+        if xPlane:
+            twistCommand.linear.x = (desPoint.point.x - currPoint.point.x) * self.scale
+        if yPlane:
+            twistCommand.linear.y = (desPoint.point.y - currPoint.point.y) * self.scale
+        if zPlane:
+            twistCommand.linear.z = (desPoint.point.z - currPoint.point.z) * self.scale
 
+        """
         twistCommand.angular.x = 0
         twistCommand.angular.y = 0
         twistCommand.angular.z = 0
+        """
 
         self.pub.publish(twistCommand)
     
@@ -106,6 +111,23 @@ def test():
 
     ctwist = CommandTwistClass(ConstantsClass.ArmName.Left)
     ctwist.startup()
+
+    pub = rospy.Publisher('/l_arm_twist_controller/command', Twist)
+
+    dt = Twist()
+    dt.linear.x = 0
+    dt.linear.y = 0
+    dt.linear.z = -.1
+    # negative z is towards table
+
+    dt.angular.x = 0
+    dt.angular.y = 0
+    dt.angular.z = 0
+
+    while True:
+        pub.publish(dt)
+        rospy.sleep(.1)
+    
     """
     pub = rospy.Publisher('/l_arm_controller/command', Twist)
     desired_twist = Twist()

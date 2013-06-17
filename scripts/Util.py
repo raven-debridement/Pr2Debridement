@@ -99,7 +99,7 @@ def convertToSameFrameAndTime(ps0, ps1, listener):
     #return (ps0, listener.transformPoint(ps0frame, ps1))
 
 
-def euclideanDistance(ps0, ps1, listener=None):
+def euclideanDistance(ps0, ps1, listener=None, xPlane=True, yPlane=True, zPlane=True):
     """
     Returns euclidean distance between two PointStamped
     """
@@ -112,6 +112,14 @@ def euclideanDistance(ps0, ps1, listener=None):
 
     x0, y0, z0 = ps0.point.x, ps0.point.y, ps0.point.z
     x1, y1, z1 = ps1.point.x, ps1.point.y, ps1.point.z
+
+    #flags for which planes euclidean distance is computed over
+    if not xPlane:
+        x0 = x1 = 0
+    if not yPlane:
+        y0 = y1 = 0
+    if not zPlane:
+        z0 = z1 = 0
 
     return ((x1-x0)**2 + (y1-y0)**2 + (z1-z0)**2)**.5
 
