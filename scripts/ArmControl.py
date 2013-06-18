@@ -46,12 +46,18 @@ class ArmControlClass (PR2):
         self.toolframe = self.armName[0] + self.tool_frame_suffix
 
         # number of iterations for trajopt
-        self.n_steps = 10
+        self.n_steps = 20
 
         time.sleep(1)
 
+    def goToArmPose(self, pose):
+        self.arm.cart_command.publish(pose)
+        quat = [pose.pose.orientation.w, pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z]
+        xyz = [pose.pose.position.x, pose.pose.position.y, pose.pose.position.z]
+        ref_frame = pose.header.frame_id
+        self.arm.set_cart_target(quat,xyz,ref_frame)
 
-    def goToArmPose(self, lr, pose):
+    def planAndGoToArmPose(self, pose):
         
         # get the current joint state for joint_names
         rospy.wait_for_service("return_joint_states")
@@ -68,7 +74,7 @@ class ArmControlClass (PR2):
         quat_target = [quat.w, quat.x, quat.y, quat.z]
         xyz_target = [xyz.x, xyz.y, xyz.z]
         # keep elbow above table
-        elbow_target = [0, 0, xyz.z + .1]
+        elbow_target = [0, 0, xyz.z + .15]
         hmat_target = openravepy.matrixFromPose( np.r_[quat_target, xyz_target] )
 
         # inverse kinematics
@@ -78,7 +84,7 @@ class ArmControlClass (PR2):
         if init_joint_target == None:
             # inverse kinematics failed
             # will do nothing for now, may want to alter xyz_target a little
-            return
+            return False
 
 
         request = {
@@ -99,17 +105,8 @@ class ArmControlClass (PR2):
                         "dist_pen" : [0.025] 
                         }
                     },
-                {
-                    "type" : "pose",
-                    "params" : {
-                        "coeffs" : [20],
-                        "xyz" : elbow_target,
-                        "wxyz" : quat_target,
-                        "link": "l_elbow_flex_link",
-                        "rot_coeffs" : [0,0,0],
-                        "pos_coeffs" : [0,0,1]
-                        }
-                    },
+                
+
                 ],
             "constraints" : [
                 # BEGIN pose_target
@@ -119,13 +116,23 @@ class ArmControlClass (PR2):
                     "params" : {"xyz" : xyz_target, 
                                 "wxyz" : quat_target,  # unused
                                 "link": self.toolframe,
-                                "rot_coeffs" : [1,1,0],
+                                "rot_coeffs" : [1,1,1],
                                 "pos_coeffs" : [1,1,1]
                                 }
                     
                     },
                 #END pose_target
-
+                {
+                    "type" : "pose",
+                    "params" : {
+                            "coeffs" : [20],
+                            "xyz" : elbow_target,
+                            "wxyz" : quat_target,
+                            "link": "l_elbow_flex_link",
+                            "rot_coeffs" : [0,0,0],
+                            "pos_coeffs" : [0,0,1]
+                            }
+                    },
                 ],
             "init_info" : {
                 "type" : "straight_line",
@@ -143,15 +150,35 @@ class ArmControlClass (PR2):
 
         self.arm.follow_joint_trajectory(result.GetTraj())
 
+        return True
+
+    def goToSide(self):
+        """
+        Useful for debugging
+        """
+        self.arm.goto_posture('side')
+
 
 
 def test():
     rospy.init_node('main_node')
     leftArm = ArmControlClass(ConstantsClass.ArmName.Left)
     
+    #leftArm.goToSide()
+    #return
+
     import tf.transformations as tft
+    import tf
     from math import pi
+    
+
+    listener = tf.TransformListener()
+
     def stereoCallback(msg):
+        commonTime = listener.getLatestCommonTime("base_link",msg.header.frame_id)
+        msg.header.stamp = commonTime
+        msg = listener.transformPoint("base_link",msg)
+
         test.desiredPose = PoseStamped()
         
         x,y,z = msg.point.x, msg.point.y, msg.point.z
@@ -167,7 +194,7 @@ def test():
 
         test.desiredPose.header = msg.header
         test.desiredPose.pose.position = msg.point
-        test.desiredPose.pose.position.z += .15
+        #test.desiredPose.pose.position.z -=.02
 
     test.desiredPose = None
 
@@ -179,7 +206,7 @@ def test():
         if test.desiredPose != None:
             rospy.loginfo('inner loop')            
             
-            leftArm.goToArmPose('l',test.desiredPose)
+            leftArm.planAndGoToArmPose(test.desiredPose)
             test.desiredPose = None
             
             

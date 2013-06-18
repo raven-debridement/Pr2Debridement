@@ -22,6 +22,8 @@ class CommandGripperClass():
         self.maxRange = .09
         # no effort limit (may change)
         self.effortLimit = -1
+        # distance from center of gripper to tip
+        self.gripperLength = .05
 
         self.client = actionlib.SimpleActionClient(gripperName + '_controller/gripper_action', Pr2GripperCommandAction)
 
@@ -57,20 +59,18 @@ class CommandGripperClass():
 
         return (result.reached_goal) or (result.stalled)
 
+    def gripperLength(self):
+        return self.gripperLength
 
 
 
-
-
-
-#for testing
-if __name__ == '__main__':
+def test():
     rospy.init_node('test_gripper_class')
 
     success = True
     timeDelay = 3
 
-    cgl = CommandGripperClass(ConstantsClass.GripperName.Left)    
+    cgl = CommandGripperClass(ConstantsClass.GripperName.Left)
     success &= cgl.openGripper()
     rospy.sleep(timeDelay)
     success &= cgl.closeGripper()
@@ -107,3 +107,7 @@ if __name__ == '__main__':
     else:
         print('CommandGripperClass failed!!!')
     
+
+#for testing
+if __name__ == '__main__':
+    test()

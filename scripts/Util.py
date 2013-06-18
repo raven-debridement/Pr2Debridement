@@ -6,6 +6,7 @@ roslib.load_manifest('Pr2Debridement')
 import rospy
 from geometry_msgs.msg import Twist, PointStamped, PoseStamped, Quaternion
 import tf
+import tf.transformations as tft
 
 def xyzAndFrameToPointStamped(x, y, z, frame_id):
     pStamped = PointStamped()
@@ -95,7 +96,11 @@ def convertToSameFrameAndTime(ps0, ps1, listener):
     commonTime = listener.getLatestCommonTime(ps0frame, ps1frame)
     ps0.header.stamp = ps1.header.stamp = commonTime
 
-    return (listener.transformPoint(ps1frame, ps0), ps1)
+    if type(ps0) == PointStamped:
+        return (listener.transformPoint(ps1frame, ps0), ps1)
+    elif type(ps0) == PoseStamped:
+        return (listener.transformPose(ps1frame, ps0), ps1)
+    return (None, None)
     #return (ps0, listener.transformPoint(ps0frame, ps1))
 
 
@@ -110,6 +115,10 @@ def euclideanDistance(ps0, ps1, listener=None, xPlane=True, yPlane=True, zPlane=
         except tf.Exception:
             return float("inf")
 
+    
+    if ps0 == None or ps1 == None:
+        return False
+
     x0, y0, z0 = ps0.point.x, ps0.point.y, ps0.point.z
     x1, y1, z1 = ps1.point.x, ps1.point.y, ps1.point.z
 
@@ -122,6 +131,41 @@ def euclideanDistance(ps0, ps1, listener=None, xPlane=True, yPlane=True, zPlane=
         z0 = z1 = 0
 
     return ((x1-x0)**2 + (y1-y0)**2 + (z1-z0)**2)**.5
+
+def withinBounds(ps0, ps1, transBound, rotBound, listener=None):
+    """
+    Returns if ps0 and ps1 (PoseStamped) are within translation and rotation bounds of each other
+    """
+    # must be in same reference frame
+    if listener != None:
+        try:
+            ps0, ps1 = convertToSameFrameAndTime(ps0, ps1, listener)
+        except tf.Exception:
+            return False
+
+    if ps0 == None or ps1 == None:
+        return False
+
+    xtrans0, ytrans0, ztrans0 = ps0.pose.position.x, ps0.pose.position.y, ps0.pose.position.z
+    xtrans1, ytrans1, ztrans1 = ps1.pose.position.x, ps1.pose.position.y, ps1.pose.position.z
+
+    wrot0, xrot0, yrot0, zrot0 = ps0.pose.orientation.w, ps0.pose.orientation.x, ps0.pose.orientation.y, ps0.pose.orientation.z    
+    wrot1, xrot1, yrot1, zrot1 = ps1.pose.orientation.w, ps1.pose.orientation.x, ps1.pose.orientation.y, ps1.pose.orientation.z
+
+    ps0rot0, ps0rot1, ps0rot2 = tft.euler_from_quaternion([xrot0, yrot0, zrot0, wrot0])
+    ps1rot0, ps1rot1, ps1rot2 = tft.euler_from_quaternion([xrot1, yrot1, zrot1, wrot1])
+
+    within = True
+    
+    within &= abs(xtrans0 - xtrans1) < transBound
+    within &= abs(ytrans0 - ytrans1) < transBound
+    within &= abs(ztrans0 - ztrans1) < transBound
+    
+    within &= abs(ps0rot0 - ps1rot0) < rotBound
+    within &= abs(ps0rot1 - ps1rot1) < rotBound
+    within &= abs(ps0rot2 - ps1rot2) < rotBound
+    
+    return within
 
 def timeoutFunc(loopTest, update, timeout, sleepTime=.1):
     """
