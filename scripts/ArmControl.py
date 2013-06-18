@@ -11,6 +11,7 @@ import rospy
 import openravepy as rave
 from PR2 import PR2, Arm
 import time
+import tf
 
 from Constants import *
 from joint_states_listener.srv import ReturnJointStates
@@ -50,15 +51,57 @@ class ArmControlClass (PR2):
 
         time.sleep(1)
 
-    def goToArmPose(self, pose):
-        self.arm.cart_command.publish(pose)
-        quat = [pose.pose.orientation.w, pose.pose.orientation.x, pose.pose.orientation.y, pose.pose.orientation.z]
-        xyz = [pose.pose.position.x, pose.pose.position.y, pose.pose.position.z]
-        ref_frame = pose.header.frame_id
-        self.arm.set_cart_target(quat,xyz,ref_frame)
+    def goToArmPose(self, pose, listener=None):
+        """
+        No path planning. Straight IK
+        """
+        # must convert to BaseLink frame
+        if listener != None:
+            while True:
+                try:
+                    commonTime = listener.getLatestCommonTime(ConstantsClass.BaseLink,pose.header.frame_id)
+                    pose.header.stamp = commonTime
+                    pose = listener.transformPose(ConstantsClass.BaseLink,pose)
+                    rospy.loginfo('converted successully')
+                    break
+                except tf.Exception:
+                    rospy.sleep(.1)
 
-    def planAndGoToArmPose(self, pose):
+        # get the current joint state for joint_names
+        rospy.wait_for_service("return_joint_states")
+        s = rospy.ServiceProxy("return_joint_states", ReturnJointStates)
+        resp = s(self.joint_names)
         
+        # set the start joint position
+        joint_start = resp.position
+        self.robot.SetDOFValues(joint_start, self.robot.GetManipulator(self.armName).GetArmIndices())
+
+        # initialize trajopt inputs
+        quat = pose.pose.orientation
+        xyz = pose.pose.position
+        quat_target = [quat.w, quat.x, quat.y, quat.z]
+        xyz_target = [xyz.x, xyz.y, xyz.z]
+        hmat_target = openravepy.matrixFromPose( np.r_[quat_target, xyz_target] )
+
+        self.arm.goto_pose_matrix(hmat_target, ConstantsClass.BaseLink, self.toolframe)
+
+
+    def planAndGoToArmPose(self, pose, listener=None):
+        """
+        Path plan using trajopt. Then execute trajectory
+        """
+        # must convert to BaseLink frame
+        if listener != None:
+            while True:
+                try:
+                    commonTime = listener.getLatestCommonTime(ConstantsClass.BaseLink,pose.header.frame_id)
+                    pose.header.stamp = commonTime
+                    pose = listener.transformPose(ConstantsClass.BaseLink,pose)
+                    rospy.loginfo('converted successully')
+                    break
+                except tf.Exception:
+                    rospy.sleep(.1)
+
         # get the current joint state for joint_names
         rospy.wait_for_service("return_joint_states")
         s = rospy.ServiceProxy("return_joint_states", ReturnJointStates)
@@ -109,12 +152,23 @@ class ArmControlClass (PR2):
 
                 ],
             "constraints" : [
+                {
+                    "type" : "pose",
+                    "name" : "pre_pose",
+                    "params" : {"timestep" : self.n_steps-2,
+                                "xyz" : xyz_target,
+                                "wxyz" : quat_target,
+                                "link" : self.toolframe,
+                                "rot_coeffs" : [0,0,0],
+                                "pos_coeffs" : [0,0,1],
+                                }
+                    },
                 # BEGIN pose_target
                 {
                     "type" : "pose",
                     "name" : "target_pose",
                     "params" : {"xyz" : xyz_target, 
-                                "wxyz" : quat_target,  # unused
+                                "wxyz" : quat_target,
                                 "link": self.toolframe,
                                 "rot_coeffs" : [1,1,1],
                                 "pos_coeffs" : [1,1,1]
@@ -175,9 +229,9 @@ def test():
     listener = tf.TransformListener()
 
     def stereoCallback(msg):
-        commonTime = listener.getLatestCommonTime("base_link",msg.header.frame_id)
-        msg.header.stamp = commonTime
-        msg = listener.transformPoint("base_link",msg)
+        #commonTime = listener.getLatestCommonTime("base_link",msg.header.frame_id)
+        #msg.header.stamp = commonTime
+        #msg = listener.transformPoint("base_link",msg)
 
         test.desiredPose = PoseStamped()
         
@@ -206,7 +260,9 @@ def test():
         if test.desiredPose != None:
             rospy.loginfo('inner loop')            
             
-            leftArm.planAndGoToArmPose(test.desiredPose)
+            #print(test.desiredPose)
+            #leftArm.planAndGoToArmPose(test.desiredPose, listener)
+            leftArm.goToArmPose(test.desiredPose, listener)
             test.desiredPose = None
             
             

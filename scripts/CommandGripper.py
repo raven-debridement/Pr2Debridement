@@ -65,7 +65,6 @@ class CommandGripperClass():
 
 
 def test():
-    rospy.init_node('test_gripper_class')
 
     success = True
     timeDelay = 3
@@ -110,4 +109,7 @@ def test():
 
 #for testing
 if __name__ == '__main__':
-    test()
+    rospy.init_node('gripper_node')
+    cgl = CommandGripperClass(ConstantsClass.GripperName.Left)
+    cgl.openGripper()
+    #test()

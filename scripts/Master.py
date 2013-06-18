@@ -45,9 +45,9 @@ class MasterClass():
             # timeout class with 60 second timeout
             timeout = TimeoutClass(60)
             # translation bound
-            transBound = .02
+            transBound = .06
             # rotation bound
-            rotBound = .01
+            rotBound = float("inf")
             
             rospy.loginfo('Searching for the receptacle')
             if not self.imageDetector.hasFoundReceptacle():
@@ -89,16 +89,17 @@ class MasterClass():
             objectPose = self.listener.transformPose(self.toolframe, objectPose)
             print(objectPose)
             """
+
             # CURRENTLY NOT TAKING INTO ACCOUNT GRIPPER POSE
-            #self.armControl.planAndGoToArmPose(objectPose)
-            self.armControl.goToArmPose(objectPose)
+            self.armControl.planAndGoToArmPose(objectPose, self.listener)
+            #self.armControl.goToArmPose(objectPose)
 
             success = True
             timeout.start()
             while not withinBounds(gripperPose, objectPose, transBound, rotBound, self.listener):
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
                 objectPose = self.imageDetector.getObjectPose()
-
+                self.armControl.planAndGoToArmPose(objectPose, self.listener)
                 """
                 commonTime = self.listener.getLatestCommonTime(self.toolframe, objectPose.header.frame_id)
                 objectPose.header.stamp = commonTime
@@ -205,14 +206,15 @@ class MasterClass():
             rospy.loginfo('Moving to the receptacle')
             # move to receptacle
             receptaclePose = self.imageDetector.getReceptaclePose()
-            
+            self.armControl.planAndGoToArmPose(receptaclePose)
+
             success = True
             timeout.start()
             while not withinBounds(gripperPose, receptaclePose, transBound, rotBound, self.listener):
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
                 receptaclePose = self.imageDetector.getReceptaclePose()
                 # CURRENTLY NOT TAKING INTO ACCOUNT GRIPPER POSE
-                self.armControl.planAndGoToArmPose(receptaclePose)
+                #self.armControl.planAndGoToArmPose(receptaclePose)
                 if timeout.hasTimedOut():
                     success = False
                     break
@@ -255,6 +257,11 @@ class MasterClass():
             # open gripper to drop off
             if not self.commandGripper.openGripper():
                 continue
+
+            # temporary
+            # when image segmentation done, object will automatically be
+            # removed b/c it will be in the receptacle
+            self.imageDetector.removeFirstObjectPoint()
 
 
 

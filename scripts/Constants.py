@@ -23,5 +23,6 @@ class ConstantsClass:
     class ToolFrame:
         Left = 'l_gripper_tool_frame'
         Right = 'r_gripper_tool_frame'
-        
+
+    BaseLink = 'base_link'
     StereoName = 'stereo_points_3d'

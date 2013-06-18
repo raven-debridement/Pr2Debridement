@@ -157,6 +157,16 @@ def withinBounds(ps0, ps1, transBound, rotBound, listener=None):
 
     within = True
     
+    print('within')
+    print(abs(xtrans0 - xtrans1))
+    print(abs(ytrans0 - ytrans1))
+    print(abs(ztrans0 - ztrans1))
+    
+    print(abs(ps0rot0 - ps1rot0))
+    print(abs(ps0rot1 - ps1rot1))
+    print(abs(ps0rot2 - ps1rot2))
+    
+
     within &= abs(xtrans0 - xtrans1) < transBound
     within &= abs(ytrans0 - ytrans1) < transBound
     within &= abs(ztrans0 - ztrans1) < transBound
