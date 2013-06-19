@@ -1,6 +1,6 @@
 import logging as _logging
 
-log = _logging.getLogger("rapprentice")
+log = _logging.getLogger("Pr2Debridement")
 log.setLevel(_logging.DEBUG)
 
 _ch = _logging.StreamHandler()

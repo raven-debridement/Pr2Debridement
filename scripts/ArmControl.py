@@ -9,7 +9,7 @@ import trajoptpy.kin_utils as ku
 
 import rospy
 import openravepy as rave
-from pr2.PR2 import PR2
+from pr2 import pr2
 
 import time
 import tf
@@ -21,7 +21,7 @@ from geometry_msgs.msg import PointStamped, PoseStamped
 
 import code
 
-class ArmControlClass (PR2):
+class ArmControlClass (pr2.PR2):
     """
     Class for controlling the arms of the PR2
     """
@@ -39,7 +39,7 @@ class ArmControlClass (PR2):
     
 
     def __init__ (self, armName):      
-        PR2.__init__(self)
+        pr2.PR2.__init__(self)
         
         if armName == ConstantsClass.ArmName.Left:
             self.arm = self.larm

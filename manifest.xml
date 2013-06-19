@@ -25,6 +25,8 @@
   <depend package="gazebo_msgs"/>
   <depend package="joint_states_listener"/>
 
+  <depend package="Pr2Debridement"/>
+
 </package>
 
 

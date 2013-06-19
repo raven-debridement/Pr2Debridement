@@ -37,7 +37,7 @@ class MasterClass():
         self.armControl = ArmControlClass(self.armName)
 
     def run(self):
-        while True:
+        while not rospy.is_shutdown():
             # can change rate
             rospy.sleep(.5)
 
