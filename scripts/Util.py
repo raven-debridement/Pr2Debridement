@@ -202,6 +202,9 @@ class TimeoutClass():
         self.timeoutTime = timeoutTime
 
     def start(self):
+        """
+        Restarts timeout every time this method is called
+        """
         self.endTime = rospy.Time.now() + rospy.Duration(self.timeoutTime)
 
     def hasTimedOut(self):

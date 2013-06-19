@@ -6,12 +6,9 @@ roslib.load_manifest('Pr2Debridement')
 import rospy
 import sys
 import actionlib
-from actionlib_msgs.msg import *
-from pr2_controllers_msgs.msg import *
-from geometry_msgs.msg import WrenchStamped
-from gazebo_msgs.msg import *
+from pr2_controllers_msgs.msg import Pr2GripperCommandAction, Pr2GripperCommandGoal, Pr2GripperCommand
 
-from Constants import *
+from Constants import ConstantsClass
 
 class CommandGripperClass():
     def __init__(self, gripperName):
@@ -41,23 +38,15 @@ class CommandGripperClass():
         self.client.send_goal(Pr2GripperCommandGoal(Pr2GripperCommand(position, self.effortLimit)))
         
         #temp fix
-        rospy.sleep(2)
-        return True
+        #rospy.sleep(2)
+        #return True
 
         self.client.wait_for_result()
+        return True
 
-        result = self.client.get_result()
-        
-        """
-        if result.stalled:
-            print('stalled!')
-        elif result.reached_goal:
-            print('reached goal!')
-        else:
-            print('failed!')
-        """
-
-        return (result.reached_goal) or (result.stalled)
+        # below not guaranteed to work for grasping
+        # result = self.client.get_result()        
+        # return (result.reached_goal) or (result.stalled)
 
     def gripperLength(self):
         return self.gripperLength
@@ -110,6 +99,6 @@ def test():
 #for testing
 if __name__ == '__main__':
     rospy.init_node('gripper_node')
-    cgl = CommandGripperClass(ConstantsClass.GripperName.Left)
-    cgl.openGripper()
-    #test()
+    #cgl = CommandGripperClass(ConstantsClass.GripperName.Left)
+    #cgl.openGripper()
+    test()

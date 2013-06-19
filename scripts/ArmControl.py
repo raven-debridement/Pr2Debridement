@@ -9,14 +9,15 @@ import trajoptpy.kin_utils as ku
 
 import rospy
 import openravepy as rave
-from PR2 import PR2, Arm
+from pr2.PR2 import PR2
+
 import time
 import tf
 
-from Constants import *
+from Constants import ConstantsClass
 from joint_states_listener.srv import ReturnJointStates
 
-from geometry_msgs.msg import *
+from geometry_msgs.msg import PointStamped, PoseStamped
 
 import code
 
@@ -37,8 +38,8 @@ class ArmControlClass (PR2):
 
     
 
-    def __init__ (self, armName, rave_robot=None):      
-        PR2.__init__(self, rave_robot)
+    def __init__ (self, armName):      
+        PR2.__init__(self)
         
         if armName == ConstantsClass.ArmName.Left:
             self.arm = self.larm
@@ -56,16 +57,15 @@ class ArmControlClass (PR2):
         self.env.Load('/home/gkahn/Berkeley/Research/ros_ws/sandbox/Pr2Debridement/data/table.xml')
         
         #trajoptpy.SetInteractive(True)
-        #print(self.robot.GetDOFVelocityLimits())
-        #print(self.arm.vel_limits)
+        slow_down_ratio = .5
 
-        self.robot.SetDOFVelocityLimits(.25*self.robot.GetDOFVelocityLimits())
-        self.robot.SetDOFAccelerationLimits(.25*self.robot.GetDOFAccelerationLimits())
+        self.robot.SetDOFVelocityLimits(slow_down_ratio*self.robot.GetDOFVelocityLimits())
+        self.robot.SetDOFAccelerationLimits(slow_down_ratio*self.robot.GetDOFAccelerationLimits())
  
         # can slow down limits here!
-        self.arm.vel_limits = np.array([.25*limit for limit in self.arm.vel_limits])
-        # slow down acceleration?
-        self.arm.acc_limits = np.array([.25*limit for limit in self.arm.acc_limits])
+        self.arm.vel_limits = np.array([slow_down_ratio*limit for limit in self.arm.vel_limits])
+        # slow down acceleration
+        self.arm.acc_limits = np.array([slow_down_ratio*limit for limit in self.arm.acc_limits])
 
         time.sleep(1)
 
@@ -103,11 +103,12 @@ class ArmControlClass (PR2):
 
         self.arm.goto_pose_matrix(hmat_target, ConstantsClass.BaseLink, self.toolframe)
 
+
+
     def planAndGoToArmPose(self, pose, reqName=ConstantsClass.Request.noRequest, listener=None):
         """
         Path plan using trajopt. Then execute trajectory
         """
-        #print(pose)
         # must convert to BaseLink frame
         if listener != None:
             while True:
@@ -120,17 +121,11 @@ class ArmControlClass (PR2):
                 except tf.Exception:
                     rospy.sleep(.1)
 
-        # call John's code instead
-        #return self.this_side_up([pose.pose.position.x, pose.pose.position.y, pose.pose.position.z])
-
         # get the current joint state for joint_names
         rospy.wait_for_service("return_joint_states")
         s = rospy.ServiceProxy("return_joint_states", ReturnJointStates)
         resp = s(self.joint_names)
         
-
-        #code.interact(local=locals())
-
         # set the start joint position
         joint_start = resp.position
         self.robot.SetDOFValues(joint_start, self.robot.GetManipulator(self.armName).GetArmIndices())
@@ -170,6 +165,9 @@ class ArmControlClass (PR2):
         return True
 
     def getRequest(self, reqName, xyz_target, quat_target, init_joint_target):
+        """
+        Different request types. See ConstantsClass.Request
+        """
         if reqName == ConstantsClass.Request.goReceptacle:
             
             request = {
@@ -280,8 +278,8 @@ def test():
     rospy.init_node('main_node')
     leftArm = ArmControlClass(ConstantsClass.ArmName.Left)
     
-    leftArm.goToSide()
-    return
+    #leftArm.goToSide()
+    #return
 
     import tf.transformations as tft
     import tf
@@ -290,21 +288,7 @@ def test():
 
     listener = tf.TransformListener()
 
-    """
-    testPose = PoseStamped()
-    testPose.header.stamp = rospy.Time.now()
-    testPose.header.frame_id = 'l_gripper_tool_frame'
-    testPose.pose.position = Point(.05,0,0)
-    testPose.pose.orientation = Quaternion(1,0,0,0)
-    leftArm.planAndGoToArmPose(testPose, ConstantsClass.Request.noRequest, listener)
-    return
-    """
-
     def stereoCallback(msg):
-        #commonTime = listener.getLatestCommonTime("base_link",msg.header.frame_id)
-        #msg.header.stamp = commonTime
-        #msg = listener.transformPoint("base_link",msg)
-        print(msg)
         test.desiredPose = PoseStamped()
         
         x,y,z = msg.point.x, msg.point.y, msg.point.z
@@ -333,7 +317,7 @@ def test():
         if test.desiredPose != None:
             rospy.loginfo('inner loop')            
             
-            #print(test.desiredPose)
+
             leftArm.planAndGoToArmPose(test.desiredPose, ConstantsClass.Request.goNear, listener)
             #leftArm.goToArmPose(test.desiredPose, listener)
             test.desiredPose = None

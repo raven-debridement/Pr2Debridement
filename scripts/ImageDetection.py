@@ -12,9 +12,9 @@ import tf.transformations as tft
 import math
 
 import Util
-from Constants import *
+from Constants import ConstantsClass
 
-from threading import *
+from threading import Lock
 
 class ImageDetectionClass():
       """
@@ -27,7 +27,7 @@ class ImageDetectionClass():
             self.leftGripperPose = None
             self.rightGripperPose = None
             #receptacle point. Must have frame_id of global (or main camera) frame
-            #is the exact place to drop off (i.e. don't need to do extra calcs to move away)
+            #is the exact place to drop off (i.e. don't need to do extra calcs to move away
             self.receptaclePoint = None
             #table normal. Must be according to global (or main camera) frame
             if normal != None:
@@ -88,7 +88,6 @@ class ImageDetectionClass():
       def getObjectPose(self):
             """
             Returns object point plus the table normal as the orientation
-
             """
             objectPoint = self.getObjectPoint()
             return Util.pointStampedToPoseStamped(objectPoint, self.normal)
@@ -98,7 +97,6 @@ class ImageDetectionClass():
             May update to take argument currPos, and then choose object closest to currPos
             
             Also, keep track of object points and not object poses because we assume the object will be on a flat table.
-
             """
             if not self.hasFoundObject():
                   return None

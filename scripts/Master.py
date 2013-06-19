@@ -7,12 +7,11 @@ import rospy
 import sys
 from geometry_msgs.msg import Twist, PointStamped
 import tf
-import random
 
-from CommandGripper import *
-from ArmControl import *
-from Constants import *
-from ImageDetection import *
+from CommandGripper import CommandGripperClass
+from ArmControl import ArmControlClass
+from Constants import ConstantsClass
+from ImageDetection import ImageDetectionClass
 from Util import *
 
 class MasterClass():
@@ -43,7 +42,7 @@ class MasterClass():
             rospy.sleep(.5)
 
             # delay between parts
-            delay = 1
+            delay = .5
             # timeout class with 15 second timeout
             timeout = TimeoutClass(15)
             # translation bound
@@ -80,10 +79,11 @@ class MasterClass():
             
             
             rospy.loginfo('Moving close to the object point')
-            # Add noise below ######
             nearObjectPose = PoseStamped(objectPose.header, objectPose.pose)
             nearObjectPose.pose.position.y += .1 # 10 cm to left
             nearObjectPose.pose.position.z += .1 # and a little above, for safety
+            # Add noise below ######
+
             ########################
             self.armControl.planAndGoToArmPose(nearObjectPose, ConstantsClass.Request.goNear, self.listener)
 
