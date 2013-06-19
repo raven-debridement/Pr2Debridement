@@ -85,7 +85,7 @@ class MasterClass():
             # Add noise below ######
 
             ########################
-            self.armControl.goToArmPose(nearObjectPose, True, self.listener, ConstantsClass.Request.goNear)
+            self.armControl.goToArmPose(nearObjectPose, True, ConstantsClass.Request.goNear)
 
             success = True
             timeout.start()
@@ -124,7 +124,7 @@ class MasterClass():
                 #print('desiredObjectPose')
                 #print(desiredObjectPose)
                 ########################################################
-                self.armControl.goToArmPose(desiredObjectPose, False, self.listener)
+                self.armControl.goToArmPose(desiredObjectPose, False)
                 #self.armControl.goToArmPose(objectPose, self.listener)
 
                 if timeout.hasTimedOut():
@@ -159,7 +159,7 @@ class MasterClass():
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
             
                 # need to eventually take gripperPose into account
-                self.armControl.goToArmPose(vertObjectPose, False, self.listener)
+                self.armControl.goToArmPose(vertObjectPose, False)
 
                 if timeout.hasTimedOut():
                     success = False
@@ -176,7 +176,7 @@ class MasterClass():
             rotBound = float("inf")
             # move to receptacle
             receptaclePose = self.imageDetector.getReceptaclePose()
-            self.armControl.goToArmPose(receptaclePose, True, self.listener, ConstantsClass.Request.goReceptacle)
+            self.armControl.goToArmPose(receptaclePose, True, ConstantsClass.Request.goReceptacle)
 
             success = True
             timeout.start()

@@ -51,6 +51,7 @@ class ArmControlClass (pr2.PR2):
         self.joint_names = [self.armName[0]+suffix for suffix in self.joint_name_suffixes]
         self.toolframe = self.armName[0] + self.tool_frame_suffix
 
+        self.listener = tf.TransformListener()
 
         # number of iterations for trajopt
         self.n_steps = 60
@@ -70,60 +71,18 @@ class ArmControlClass (pr2.PR2):
 
         time.sleep(1)
 
-    """
-    def goToArmPose(self, pose, listener=None):
-        # must convert to BaseLink frame
-        if listener != None:
-            while True:
-                try:
-                    commonTime = listener.getLatestCommonTime(ConstantsClass.BaseLink,pose.header.frame_id)
-                    pose.header.stamp = commonTime
-                    pose = listener.transformPose(ConstantsClass.BaseLink,pose)
-                    rospy.loginfo('converted successully')
-                    break
-                except tf.Exception:
-                    rospy.sleep(.1)
-
-        # get the current joint state for joint_names
-        rospy.wait_for_service("return_joint_states")
-        s = rospy.ServiceProxy("return_joint_states", ReturnJointStates)
-        resp = s(self.joint_names)
-        
-        # set the start joint position
-        joint_start = resp.position
-        self.robot.SetDOFValues(joint_start, self.robot.GetManipulator(self.armName).GetArmIndices())
-
-        # initialize trajopt inputs
-        quat = pose.pose.orientation
-        xyz = pose.pose.position
-        quat_target = [quat.w, quat.x, quat.y, quat.z]
-        xyz_target = [xyz.x, xyz.y, xyz.z]
-        hmat_target = openravepy.matrixFromPose( np.r_[quat_target, xyz_target] )
-
-        manip = self.robot.GetManipulator(self.armName)
-        init_joint_target = ku.ik_for_link(hmat_target, manip, self.toolframe, filter_options = openravepy.IkFilterOptions.CheckEnvCollisions)
-        
-        if init_joint_target == None:
-            # inverse kinematics failed
-            # will do nothing for now, may want to alter xyz_target a little
-            rospy.loginfo('IK failed')
-            return False
-
-        self.arm.goto_pose_matrix(hmat_target, ConstantsClass.BaseLink, self.toolframe)
-
-    """
-
-    def goToArmPose(self, pose, isPlanned, listener=None, reqName=ConstantsClass.Request.noRequest):
+ 
+    def goToArmPose(self, pose, isPlanned, reqName=ConstantsClass.Request.noRequest):
         """
         Path plan using trajopt. Then execute trajectory
         """
         # must convert to BaseLink frame
-        if listener != None:
+        if self.listener != None:
             while True:
                 try:
-                    commonTime = listener.getLatestCommonTime(ConstantsClass.BaseLink,pose.header.frame_id)
+                    commonTime = self.listener.getLatestCommonTime(ConstantsClass.BaseLink,pose.header.frame_id)
                     pose.header.stamp = commonTime
-                    pose = listener.transformPose(ConstantsClass.BaseLink,pose)
+                    pose = self.listener.transformPose(ConstantsClass.BaseLink,pose)
                     rospy.loginfo('converted successully')
                     break
                 except tf.Exception:
@@ -299,9 +258,6 @@ def test():
     import tf.transformations as tft
     import tf
     from math import pi
-    
-
-    listener = tf.TransformListener()
 
     def stereoCallback(msg):
         test.desiredPose = PoseStamped()
@@ -333,7 +289,7 @@ def test():
             rospy.loginfo('inner loop')            
             
 
-            leftArm.planAndGoToArmPose(test.desiredPose, ConstantsClass.Request.goNear, listener)
+            leftArm.goToArmPose(test.desiredPose, True, ConstantsClass.Request.goNear)
             test.desiredPose = None
             return
             
