@@ -5,7 +5,7 @@ import roslib
 roslib.load_manifest('Pr2Debridement')
 import rospy
 import sys
-from geometry_msgs.msg import Twist, PointStamped
+from geometry_msgs.msg import PointStamped, Pose
 import tf
 
 from CommandGripper import CommandGripperClass
@@ -85,7 +85,7 @@ class MasterClass():
             # Add noise below ######
 
             ########################
-            self.armControl.planAndGoToArmPose(nearObjectPose, ConstantsClass.Request.goNear, self.listener)
+            self.armControl.goToArmPose(nearObjectPose, True, self.listener, ConstantsClass.Request.goNear)
 
             success = True
             timeout.start()
@@ -93,7 +93,6 @@ class MasterClass():
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
                 """
                 objectPose = self.imageDetector.getObjectPose()
-                self.armControl.planAndGoToArmPose(objectPose, self.listener)
                 """
                 if timeout.hasTimedOut():
                     success = False
@@ -116,8 +115,17 @@ class MasterClass():
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
                 objectPose = self.imageDetector.getObjectPose()
             
-                # need to eventually take gripperPose into account
-                self.armControl.goToArmPose(objectPose, self.listener)
+                ############# need to eventually take gripperPose into account
+                reportedGripperPose = self.commandGripper.gripperPose()
+                gripperPoseDifference = subPoses(reportedGripperPose, gripperPose, self.listener)
+                desiredObjectPose = addPoses(objectPose, gripperPoseDifference)
+                #print('objectPose')
+                #print(objectPose)
+                #print('desiredObjectPose')
+                #print(desiredObjectPose)
+                ########################################################
+                self.armControl.goToArmPose(desiredObjectPose, False, self.listener)
+                #self.armControl.goToArmPose(objectPose, self.listener)
 
                 if timeout.hasTimedOut():
                     success = False
@@ -151,7 +159,7 @@ class MasterClass():
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
             
                 # need to eventually take gripperPose into account
-                self.armControl.goToArmPose(vertObjectPose, self.listener)
+                self.armControl.goToArmPose(vertObjectPose, False, self.listener)
 
                 if timeout.hasTimedOut():
                     success = False
@@ -168,7 +176,7 @@ class MasterClass():
             rotBound = float("inf")
             # move to receptacle
             receptaclePose = self.imageDetector.getReceptaclePose()
-            self.armControl.planAndGoToArmPose(receptaclePose, ConstantsClass.Request.goReceptacle, self.listener)
+            self.armControl.goToArmPose(receptaclePose, True, self.listener, ConstantsClass.Request.goReceptacle)
 
             success = True
             timeout.start()

@@ -4,9 +4,10 @@
 import roslib
 roslib.load_manifest('Pr2Debridement')
 import rospy
-from geometry_msgs.msg import Twist, PointStamped, PoseStamped, Quaternion
+from geometry_msgs.msg import Twist, PointStamped, PoseStamped, Quaternion, Point
 import tf
 import tf.transformations as tft
+import operator
 
 def xyzAndFrameToPointStamped(x, y, z, frame_id):
     pStamped = PointStamped()
@@ -86,7 +87,7 @@ def reverseQuaternion(quat):
 
 def convertToSameFrameAndTime(ps0, ps1, listener):
     """
-    Converts point 0 and point 1 to the same frame
+    Converts point/pose 0 and point/pose 1 to the same frame
     """
     
     ps0frame, ps1frame = ps0.header.frame_id, ps1.header.frame_id
@@ -157,6 +158,7 @@ def withinBounds(ps0, ps1, transBound, rotBound, listener=None):
 
     within = True
     
+    """
     print('within')
     print(abs(xtrans0 - xtrans1))
     print(abs(ytrans0 - ytrans1))
@@ -165,7 +167,7 @@ def withinBounds(ps0, ps1, transBound, rotBound, listener=None):
     print(abs(ps0rot0 - ps1rot0))
     print(abs(ps0rot1 - ps1rot1))
     print(abs(ps0rot2 - ps1rot2))
-    
+    """
 
     within &= abs(xtrans0 - xtrans1) < transBound
     within &= abs(ytrans0 - ytrans1) < transBound
@@ -174,8 +176,56 @@ def withinBounds(ps0, ps1, transBound, rotBound, listener=None):
     within &= abs(ps0rot0 - ps1rot0) < rotBound
     within &= abs(ps0rot1 - ps1rot1) < rotBound
     within &= abs(ps0rot2 - ps1rot2) < rotBound
-    
+
     return within
+
+
+def combinePoses(ps0, ps1, op=operator.add, listener=None):
+    """
+    Returns a PoseStamped of op(ps0,ps1)
+    """
+    # must be in same reference frame
+    if listener != None:
+        try:
+            ps0, ps1 = convertToSameFrameAndTime(ps0, ps1, listener)
+        except tf.Exception:
+            return PoseStamped()
+
+    if ps0 == None or ps1 == None:
+        return False
+
+    xtrans0, ytrans0, ztrans0 = ps0.pose.position.x, ps0.pose.position.y, ps0.pose.position.z
+    xtrans1, ytrans1, ztrans1 = ps1.pose.position.x, ps1.pose.position.y, ps1.pose.position.z
+
+    wrot0, xrot0, yrot0, zrot0 = ps0.pose.orientation.w, ps0.pose.orientation.x, ps0.pose.orientation.y, ps0.pose.orientation.z    
+    wrot1, xrot1, yrot1, zrot1 = ps1.pose.orientation.w, ps1.pose.orientation.x, ps1.pose.orientation.y, ps1.pose.orientation.z
+
+    ps0rot0, ps0rot1, ps0rot2 = tft.euler_from_quaternion([xrot0, yrot0, zrot0, wrot0])
+    ps1rot0, ps1rot1, ps1rot2 = tft.euler_from_quaternion([xrot1, yrot1, zrot1, wrot1])
+
+    addedPoint = Point(op(xtrans0,xtrans1), op(ytrans0,ytrans1), op(ztrans0,ztrans1))
+    addedEuler = [op(ps0rot0,ps1rot0), op(ps0rot1,ps1rot1), op(ps0rot2,ps1rot2)]
+    addedQuaternion = tft.quaternion_from_euler(addedEuler[0], addedEuler[1], addedEuler[2])
+    addedOrientation = Quaternion(addedQuaternion[0], addedQuaternion[1], addedQuaternion[2], addedQuaternion[3])
+
+    addedPose = PoseStamped()
+    addedPose.header = ps0.header
+    addedPose.pose.position = addedPoint
+    addedPose.pose.orientation = addedOrientation
+
+    return addedPose
+
+def addPoses(ps0, ps1, listener=None):
+    """
+    Returns a PoseStamped of ps0+ps1
+    """
+    return combinePoses(ps0,ps1,operator.add,listener)
+
+def subPoses(ps0, ps1, listener=None):
+    """
+    Returns a PoseStamped of ps0-ps1
+    """
+    return combinePoses(ps0,ps1,operator.sub,listener)
 
 def timeoutFunc(loopTest, update, timeout, sleepTime=.1):
     """

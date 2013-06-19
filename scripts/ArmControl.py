@@ -51,6 +51,7 @@ class ArmControlClass (pr2.PR2):
         self.joint_names = [self.armName[0]+suffix for suffix in self.joint_name_suffixes]
         self.toolframe = self.armName[0] + self.tool_frame_suffix
 
+
         # number of iterations for trajopt
         self.n_steps = 60
 
@@ -69,10 +70,8 @@ class ArmControlClass (pr2.PR2):
 
         time.sleep(1)
 
+    """
     def goToArmPose(self, pose, listener=None):
-        """
-        No path planning. Straight IK
-        """
         # must convert to BaseLink frame
         if listener != None:
             while True:
@@ -101,11 +100,20 @@ class ArmControlClass (pr2.PR2):
         xyz_target = [xyz.x, xyz.y, xyz.z]
         hmat_target = openravepy.matrixFromPose( np.r_[quat_target, xyz_target] )
 
+        manip = self.robot.GetManipulator(self.armName)
+        init_joint_target = ku.ik_for_link(hmat_target, manip, self.toolframe, filter_options = openravepy.IkFilterOptions.CheckEnvCollisions)
+        
+        if init_joint_target == None:
+            # inverse kinematics failed
+            # will do nothing for now, may want to alter xyz_target a little
+            rospy.loginfo('IK failed')
+            return False
+
         self.arm.goto_pose_matrix(hmat_target, ConstantsClass.BaseLink, self.toolframe)
 
+    """
 
-
-    def planAndGoToArmPose(self, pose, reqName=ConstantsClass.Request.noRequest, listener=None):
+    def goToArmPose(self, pose, isPlanned, listener=None, reqName=ConstantsClass.Request.noRequest):
         """
         Path plan using trajopt. Then execute trajectory
         """
@@ -136,6 +144,11 @@ class ArmControlClass (pr2.PR2):
         quat_target = [quat.w, quat.x, quat.y, quat.z]
         xyz_target = [xyz.x, xyz.y, xyz.z]
         hmat_target = openravepy.matrixFromPose( np.r_[quat_target, xyz_target] )
+        
+        # if no planning
+        if not isPlanned:
+            self.arm.goto_pose_matrix(hmat_target, ConstantsClass.BaseLink, self.toolframe)
+            return True
 
         # inverse kinematics
         manip = self.robot.GetManipulator(self.armName)
@@ -146,6 +159,8 @@ class ArmControlClass (pr2.PR2):
             # will do nothing for now, may want to alter xyz_target a little
             rospy.loginfo('IK failed')
             return False
+
+
 
 
         request = self.getRequest(reqName, xyz_target, quat_target, init_joint_target)
@@ -319,7 +334,6 @@ def test():
             
 
             leftArm.planAndGoToArmPose(test.desiredPose, ConstantsClass.Request.goNear, listener)
-            #leftArm.goToArmPose(test.desiredPose, listener)
             test.desiredPose = None
             return
             

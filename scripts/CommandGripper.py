@@ -7,6 +7,7 @@ import rospy
 import sys
 import actionlib
 from pr2_controllers_msgs.msg import Pr2GripperCommandAction, Pr2GripperCommandGoal, Pr2GripperCommand
+from geometry_msgs.msg import PoseStamped
 
 from Constants import ConstantsClass
 
@@ -15,6 +16,12 @@ class CommandGripperClass():
         """
         gripperName must be from ConstantsClass.GripperName
         """
+
+        if gripperName == ConstantsClass.GripperName.Left:
+            self.toolframe = ConstantsClass.ToolFrame.Left
+        else:
+            self.toolframe = ConstantsClass.ToolFrame.Right
+
         # max gripper range spec is 90mm
         self.maxRange = .09
         # no effort limit (may change)
@@ -51,6 +58,15 @@ class CommandGripperClass():
     def gripperLength(self):
         return self.gripperLength
 
+    def gripperPose(self):
+        """
+        Returns a PoseStamped of current gripper pose
+        """
+        pose = PoseStamped()
+        pose.header.stamp = rospy.Time.now()
+        pose.header.frame_id = self.toolframe
+        pose.pose.orientation.w = 1
+        return pose
 
 
 def test():

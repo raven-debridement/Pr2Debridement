@@ -13,7 +13,8 @@
   <depend package="tf"/>
   <depend package="actionlib"/>
   <depend package="pr2_controller_manager"/>
-
+  <depend package="cv_bridge"/>
+  <depend package="opencv2"/>
 
   <depend package="geometry_msgs"/>
   <depend package="actionlib_msgs"/>
@@ -24,8 +25,6 @@
   <depend package="sensor_msgs"/>
   <depend package="gazebo_msgs"/>
   <depend package="joint_states_listener"/>
-
-  <depend package="Pr2Debridement"/>
 
 </package>
 
