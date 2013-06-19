@@ -41,7 +41,7 @@ class CommandGripperClass():
         self.client.send_goal(Pr2GripperCommandGoal(Pr2GripperCommand(position, self.effortLimit)))
         
         #temp fix
-        rospy.sleep(3)
+        rospy.sleep(2)
         return True
 
         self.client.wait_for_result()

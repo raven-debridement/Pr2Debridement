@@ -56,10 +56,10 @@ class ImageDetectionClass():
             """
             if self.receptaclePoint == None:
                   self.receptaclePoint = msg
-                  self.receptaclePoint.point.z += .2
+                  self.receptaclePoint.point.z += .25
             else:
                   self.objectLock.acquire()
-                  #msg.point.z -= .05 # this is half the "height" of the object/coke/w.e.
+                  msg.point.z -= .02 # so gripper doesn't pick up on lip of can
                   self.objectPoints.append(msg)
                   self.objectLock.release()
 
@@ -104,7 +104,7 @@ class ImageDetectionClass():
                   return None
 
             self.objectLock.acquire()
-            objectPoint = self.objectPoints[-1]
+            objectPoint = self.objectPoints[0]
             objectPoint.header.stamp = rospy.Time.now()
             #self.objectPoints = self.objectPoints[:-1]
             self.objectLock.release()

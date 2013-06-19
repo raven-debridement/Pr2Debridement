@@ -42,8 +42,8 @@ class MasterClass():
             # can change rate
             rospy.sleep(.5)
 
-            # timeout class with 60 second timeout
-            timeout = TimeoutClass(60)
+            # timeout class with 15 second timeout
+            timeout = TimeoutClass(15)
             # translation bound
             transBound = .06
             # rotation bound
@@ -70,44 +70,27 @@ class MasterClass():
             else:
                 continue
 
-            """
+            
             rospy.loginfo('Opening the gripper')
             # open gripper
             if not self.commandGripper.openGripper():
                 continue
-            """
             
-            rospy.loginfo('Servoing to the object point')
+            
+            rospy.loginfo('Moving close to the object point')
             # Add noise below ######
-
+            nearObjectPose = PoseStamped(objectPose.header, objectPose.pose)
+            nearObjectPose.pose.position.y += .1 # 10 cm to left
             ########################
-            """
-            preObjectPose = PoseStamped(objectPose)
-            print(objectPose)
-            commonTime = self.listener.getLatestCommonTime(self.toolframe, objectPose.header.frame_id)
-            objectPose.header.stamp = commonTime
-            objectPose = self.listener.transformPose(self.toolframe, objectPose)
-            print(objectPose)
-            """
-
-            # CURRENTLY NOT TAKING INTO ACCOUNT GRIPPER POSE
-            self.armControl.planAndGoToArmPose(objectPose, self.listener)
-            #self.armControl.goToArmPose(objectPose)
+            self.armControl.planAndGoToArmPose(nearObjectPose, ConstantsClass.Request.goNear, self.listener)
 
             success = True
             timeout.start()
-            while not withinBounds(gripperPose, objectPose, transBound, rotBound, self.listener):
+            while not withinBounds(gripperPose, nearObjectPose, transBound, rotBound, self.listener):
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
+                """
                 objectPose = self.imageDetector.getObjectPose()
                 self.armControl.planAndGoToArmPose(objectPose, self.listener)
-                """
-                commonTime = self.listener.getLatestCommonTime(self.toolframe, objectPose.header.frame_id)
-                objectPose.header.stamp = commonTime
-                objectPose = self.listener.transformPose(self.toolframe, objectPose)
-                print(objectPose)
-
-                # CURRENTLY NOT TAKING INTO ACCOUNT GRIPPER POSE
-                self.armControl.planAndGoToArmPose(objectPose)
                 """
                 if timeout.hasTimedOut():
                     success = False
@@ -117,63 +100,31 @@ class MasterClass():
             if not success:
                 continue
 
-            """
-            rospy.loginfo('Moving to a point near the object point')
-            # go near object point
-            threshold = .05
-            self.commandPose.startup()
-            nearObjectPose = reversePoseStamped(objectPose)
-            nearObjectPose.pose.position.z += .2
-            # Add noise! ################
-            #nearObjectPose.pose.position.x += .05#random.uniform(-.05,.05)
-            #nearObjectPose.pose.position.y += random.uniform(-.05,.05)
-            #nearObjectPose.pose.position.z += random.uniform(-.05,.05)
-            #############################
-            nearObjectPoint = poseStampedToPointStamped(nearObjectPose)
-            self.commandPose.goToPose(nearObjectPose)
+            
+            rospy.sleep(1)
+            rospy.loginfo('Visual servoing to the object point')
+            # visual servo to get to the object point
+            transBound = .01
+            rotBound = .01
 
             success = True
             timeout.start()
-            while euclideanDistance(gripperPoint, nearObjectPoint,self.listener) > threshold:
-                #rospy.loginfo(euclideanDistance(gripperPoint, nearObjectPoint,self.listener))
-                gripperPoint = self.imageDetector.getGripperPoint(self.gripperName)
+            while not withinBounds(gripperPose, objectPose, transBound, rotBound, self.listener):
+                gripperPose = self.imageDetector.getGripperPose(self.gripperName)
+                objectPose = self.imageDetector.getObjectPose()
+            
+                # need to eventually take gripperPose into account
+                self.armControl.goToArmPose(objectPose, self.listener)
+
                 if timeout.hasTimedOut():
                     success = False
                     break
                 rospy.sleep(.1)
-                
+
             if not success:
                 continue
-            """
 
 
-            """
-            rospy.loginfo('Visual servoing to the object point')
-            # visual servo to get to object point
-            # threshold is distance between gripper and object before declare success
-            threshold = .01
-            self.commandTwist.startup()
-
-            success = True
-            isCentered = False
-            timeout.start()
-            while euclideanDistance(gripperPoint, objectPoint, self.listener) > threshold:
-                #rospy.loginfo(euclideanDistance(gripperPoint, objectPoint, self.listener))
-                if not isCentered and euclideanDistance(gripperPoint, objectPoint, self.listener, zPlane=isCentered) < threshold:
-                    isCentered = True
-                gripperPoint = self.imageDetector.getGripperPoint(self.gripperName)
-                self.commandTwist.driveTowardPoint(gripperPoint, objectPoint, zPlane=isCentered)
-                if timeout.hasTimedOut():
-                    success = False
-                    break
-                #determines the rate
-                rospy.sleep(.05)
-
-            if success:
-                self.commandTwist.stop()
-            else:
-                continue
-            """
 
             rospy.sleep(.5)
             rospy.loginfo('Closing the gripper')
@@ -182,6 +133,32 @@ class MasterClass():
                 continue
 
             
+
+            rospy.sleep(1)
+            rospy.loginfo('Moving vertical with the object')
+            # visual servo to get to the object point
+            transBound = .01
+            rotBound = .01
+            vertObjectPose = PoseStamped(objectPose.header, objectPose.pose)
+            vertObjectPose.pose.position.z += .1
+
+            success = True
+            timeout.start()
+            while not withinBounds(gripperPose, vertObjectPose, transBound, rotBound, self.listener):
+                gripperPose = self.imageDetector.getGripperPose(self.gripperName)
+            
+                # need to eventually take gripperPose into account
+                self.armControl.goToArmPose(vertObjectPose, self.listener)
+
+                if timeout.hasTimedOut():
+                    success = False
+                    break
+                rospy.sleep(.1)
+
+            if not success:
+                continue
+
+
             """
             rospy.loginfo('Moving vertical with object')
             # move straight up from the table
@@ -204,9 +181,11 @@ class MasterClass():
             """
 
             rospy.loginfo('Moving to the receptacle')
+            transBound = .07
+            rotBound = float("inf")
             # move to receptacle
             receptaclePose = self.imageDetector.getReceptaclePose()
-            self.armControl.planAndGoToArmPose(receptaclePose)
+            self.armControl.planAndGoToArmPose(receptaclePose, ConstantsClass.Request.goReceptacle, self.listener)
 
             success = True
             timeout.start()
