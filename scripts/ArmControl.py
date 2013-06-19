@@ -51,17 +51,21 @@ class ArmControlClass (PR2):
         self.toolframe = self.armName[0] + self.tool_frame_suffix
 
         # number of iterations for trajopt
-        self.n_steps = 20
+        self.n_steps = 60
 
-        self.env.Load('data/table.xml')
+        self.env.Load('/home/gkahn/Berkeley/Research/ros_ws/sandbox/Pr2Debridement/data/table.xml')
         
         #trajoptpy.SetInteractive(True)
         #print(self.robot.GetDOFVelocityLimits())
         #print(self.arm.vel_limits)
-        
+
+        self.robot.SetDOFVelocityLimits(.25*self.robot.GetDOFVelocityLimits())
+        self.robot.SetDOFAccelerationLimits(.25*self.robot.GetDOFAccelerationLimits())
+ 
         # can slow down limits here!
         self.arm.vel_limits = np.array([.25*limit for limit in self.arm.vel_limits])
         # slow down acceleration?
+        self.arm.acc_limits = np.array([.25*limit for limit in self.arm.acc_limits])
 
         time.sleep(1)
 
@@ -136,8 +140,6 @@ class ArmControlClass (PR2):
         xyz = pose.pose.position
         quat_target = [quat.w, quat.x, quat.y, quat.z]
         xyz_target = [xyz.x, xyz.y, xyz.z]
-        # keep elbow above table
-        elbow_target = [0, 0, xyz.z + .15]
         hmat_target = openravepy.matrixFromPose( np.r_[quat_target, xyz_target] )
 
         # inverse kinematics
@@ -201,18 +203,6 @@ class ArmControlClass (PR2):
                         },
                 ],
             "constraints" : [
-                {
-                    "type" : "pose",
-                    "name" : "get_up",
-                    "params" : {"timestamp" : 1,
-                                "xyz" : xyz_target, 
-                                "wxyz" : quat_target,
-                                "link": self.toolframe,
-                                "rot_coeffs" : [0,0,0],
-                                "pos_coeffs" : [0,0,1]
-                                }
-                    
-                    },
                 # BEGIN pose_target
                 {
                     "type" : "pose",
@@ -290,8 +280,8 @@ def test():
     rospy.init_node('main_node')
     leftArm = ArmControlClass(ConstantsClass.ArmName.Left)
     
-    #leftArm.goToSide()
-    #return
+    leftArm.goToSide()
+    return
 
     import tf.transformations as tft
     import tf
@@ -314,7 +304,7 @@ def test():
         #commonTime = listener.getLatestCommonTime("base_link",msg.header.frame_id)
         #msg.header.stamp = commonTime
         #msg = listener.transformPoint("base_link",msg)
-
+        print(msg)
         test.desiredPose = PoseStamped()
         
         x,y,z = msg.point.x, msg.point.y, msg.point.z
@@ -330,7 +320,8 @@ def test():
 
         test.desiredPose.header = msg.header
         test.desiredPose.pose.position = msg.point
-        test.desiredPose.pose.position.z += .1
+        test.desiredPose.pose.position.z += .03
+        test.desiredPose.pose.position.y += .1
 
     test.desiredPose = None
 
@@ -343,7 +334,7 @@ def test():
             rospy.loginfo('inner loop')            
             
             #print(test.desiredPose)
-            leftArm.planAndGoToArmPose(test.desiredPose, ConstantsClass.Request.noRequest, listener)
+            leftArm.planAndGoToArmPose(test.desiredPose, ConstantsClass.Request.goNear, listener)
             #leftArm.goToArmPose(test.desiredPose, listener)
             test.desiredPose = None
             return
@@ -356,105 +347,3 @@ def test():
 
 if __name__ == '__main__':    
     test()
-
-
-
-
-
-
-
-
-
-
-"""
-
-    def this_side_up(self, xyz_target):
-        manip = self.robot.GetManipulator(self.armName)
-
-
-        n_steps = 15
-        hmat_target = openravepy.matrixFromPose( np.r_[(0,1,0,0), xyz_target] )
-
-        init_joint_target = ku.ik_for_link(hmat_target, manip, self.toolframe, filter_options = openravepy.IkFilterOptions.CheckEnvCollisions)
-
-
-        request = {
-            "basic_info" : {
-                "n_steps" : n_steps,
-                "manip" : self.armName, 
-                "start_fixed" : True 
-                },
-            "costs" : [
-                {
-                    "type" : "joint_vel",
-                    "params": {"coeffs" : [1]} 
-                    },
-                {
-                    "type" : "collision",
-                    "params" : {
-                        "coeffs" : [20],
-                        "dist_pen" : [0.025] 
-                        }
-                    }
-                ],
-            "constraints" : [
-        # BEGIN pose_target
-                {
-                    "type" : "pose", 
-                    "params" : {"xyz" : xyz_target, 
-                                "wxyz" : [1,0,0,0],  # unused
-                                "link": self.toolframe,
-                                "rot_coeffs" : [0,0,0],
-                                "pos_coeffs" : [10,10,10]
-                                }
-                    
-                    },
-                #END pose_target
-                #BEGIN vel
-                {
-                    "type" : "cart_vel",
-                    "name" : "cart_vel",
-                    "params" : {
-                        "distance_limit" : 0.5,
-                        "first_step" : 0,
-                        "last_step" : n_steps-1, #inclusive
-                        "link" : self.toolframe
-                        },
-                    }
-                #END vel  
-                ],
-            "init_info" : {
-                "type" : "straight_line",
-                "endpoint" : init_joint_target.tolist()
-                }
-            }
-        s = json.dumps(request) 
-        prob = trajoptpy.ConstructProblem(s, self.env) # create object that stores optimization problem
-        
-        tool_link = self.robot.GetLink(self.toolframe)
-        local_dir = np.array([0.,0.,1.])
-        
-        arm_inds = manip.GetArmIndices()
-        arm_joints = [self.robot.GetJointFromDOFIndex(ind) for ind in arm_inds]
-        
-# BEGIN python_funcs
-        def f(x):
-            self.robot.SetDOFValues(x, arm_inds, False)
-            return tool_link.GetTransform()[:2,:3].dot(local_dir)
-        def dfdx(x):
-            self.robot.SetDOFValues(x, arm_inds, False)
-            world_dir = tool_link.GetTransform()[:3,:3].dot(local_dir)
-            return np.array([np.cross(joint.GetAxis(), world_dir)[:2] for joint in arm_joints]).T.copy()
-# END python_funcs
-
-# END add_costs
-    # BEGIN add_constraints
-        for t in xrange(1,n_steps):    
-            prob.AddConstraint(f, [(t,j) for j in xrange(7)], "EQ", "up%i"%t)
-            
-# END add_constraints
-
-        result = trajoptpy.OptimizeProblem(prob) # do optimization
-
-        self.arm.follow_joint_trajectory(result.GetTraj())
-"""

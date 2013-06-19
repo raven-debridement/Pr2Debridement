@@ -59,7 +59,7 @@ class ImageDetectionClass():
                   self.receptaclePoint.point.z += .25
             else:
                   self.objectLock.acquire()
-                  msg.point.z -= .02 # so gripper doesn't pick up on lip of can
+                  msg.point.z -= .03 # so gripper doesn't pick up on lip of can
                   self.objectPoints.append(msg)
                   self.objectLock.release()
 

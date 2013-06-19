@@ -42,6 +42,8 @@ class MasterClass():
             # can change rate
             rospy.sleep(.5)
 
+            # delay between parts
+            delay = 1
             # timeout class with 15 second timeout
             timeout = TimeoutClass(15)
             # translation bound
@@ -81,6 +83,7 @@ class MasterClass():
             # Add noise below ######
             nearObjectPose = PoseStamped(objectPose.header, objectPose.pose)
             nearObjectPose.pose.position.y += .1 # 10 cm to left
+            nearObjectPose.pose.position.z += .1 # and a little above, for safety
             ########################
             self.armControl.planAndGoToArmPose(nearObjectPose, ConstantsClass.Request.goNear, self.listener)
 
@@ -101,7 +104,7 @@ class MasterClass():
                 continue
 
             
-            rospy.sleep(1)
+            rospy.sleep(delay)
             rospy.loginfo('Visual servoing to the object point')
             # visual servo to get to the object point
             transBound = .01
@@ -126,7 +129,7 @@ class MasterClass():
 
 
 
-            rospy.sleep(.5)
+            rospy.sleep(delay)
             rospy.loginfo('Closing the gripper')
             # close gripper (consider not all the way)
             if not self.commandGripper.closeGripper():
@@ -134,7 +137,7 @@ class MasterClass():
 
             
 
-            rospy.sleep(1)
+            rospy.sleep(delay)
             rospy.loginfo('Moving vertical with the object')
             # visual servo to get to the object point
             transBound = .01
@@ -159,27 +162,7 @@ class MasterClass():
                 continue
 
 
-            """
-            rospy.loginfo('Moving vertical with object')
-            # move straight up from the table
-            # move to nearObjectPoint
-            self.commandPose.startup()
-            self.commandPose.goToPose(nearObjectPose)
-
-            success = True
-            timeout.start()
-            while euclideanDistance(gripperPoint, nearObjectPoint,self.listener) > threshold:
-                rospy.loginfo(euclideanDistance(gripperPoint, nearObjectPoint,self.listener))
-                gripperPoint = self.imageDetector.getGripperPoint(self.gripperName)
-                if timeout.hasTimedOut():
-                    success = False
-                    break
-                rospy.sleep(.1)
-                
-            if not success:
-                continue
-            """
-
+            rospy.sleep(delay)
             rospy.loginfo('Moving to the receptacle')
             transBound = .07
             rotBound = float("inf")
@@ -201,36 +184,6 @@ class MasterClass():
 
             if not success:
                 continue
-
-            """
-            rospy.loginfo('Moving to the receptacle')
-            # self.commandPose if/else block needs to be added
-            # to get back to receptacle
-            if self.imageDetector.hasFoundReceptacle():
-                receptaclePoint = self.imageDetector.getReceptaclePoint()
-                
-                receptaclePose = reversePoseStamped(self.imageDetector.getReceptaclePose())
-                receptaclePose.pose.position.z += .1
-                
-                threshold = .15
-                self.commandPose.startup()
-                self.commandPose.goToPose(receptaclePose)
-
-                success = True
-                timeout.start()
-                while euclideanDistance(gripperPoint, receptaclePoint, self.listener) > threshold:
-                    rospy.loginfo(euclideanDistance(gripperPoint, receptaclePoint, self.listener))
-                    gripperPoint = self.imageDetector.getGripperPoint(self.gripperName)
-                    if timeout.hasTimedOut():
-                        success = False
-                        break
-                    rospy.sleep(.1)
-            else:
-                continue
-
-            if not success:
-                continue
-            """                              
 
             rospy.loginfo('Opening the gripper to drop in the receptacle')
             # open gripper to drop off
