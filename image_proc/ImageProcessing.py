@@ -7,20 +7,38 @@ import rospy
 
 import cv
 from std_msgs.msg import String
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge, CvBridgeError
+from geometry_msgs.msg import Point, PointStamped
+import tf
 
 import message_filters
+from threading import Lock
 
 class ImageProcessingClass():
     def __init__(self):
         self.yCloseLeft = self.xCloseLeft = 0
         self.yCloseRight = self.xCloseRight = 0
 
+        self.locks = dict()
+        self.locks['leftImage'] = Lock()
+        self.locks['rightImage'] = Lock()
+        self.locks['leftInfo'] = Lock()
+        self.locks['rightInfo'] = Lock()
+
+        self.listener = tf.TransformListener()
+        self.outputFrame = 'base_link'
+        
         self.bridge = CvBridge()
 
-        rospy.Subscriber('/wide_stereo/left/image_rect_color', Image, self.leftCallback)
-        rospy.Subscriber('/wide_stereo/right/image_rect_color', Image, self.rightCallback)
+        rospy.Subscriber('/wide_stereo/left/image_rect_color', Image, self.leftImageCallback)
+        rospy.Subscriber('/wide_stereo/right/image_rect_color', Image, self.rightImageCallback)
+
+        rospy.Subscriber('/wide_stereo/left/camera_info', CameraInfo, self.leftInfoCallback)
+        rospy.Subscriber('/wide_stereo/right/camera_info', CameraInfo, self.rightInfoCallback)
+        
+        # let some camera feeds in
+        rospy.sleep(1)
 
         """
         # syncing version is slow and inconsistent
@@ -31,15 +49,61 @@ class ImageProcessingClass():
         syncImage.registerCallback(self.stereoCallback)
         """
 
-    def leftCallback(self, image):
+    def hasReceivedInfo(self):
+        return (self.leftInfo != None and self.rightInfo != None)
+
+    def convertStereo(self):
+        if not self.hasReceivedInfo()
+            return None
+
+        for key, lock in self.locks:
+            lock.acquire()
+
+        u = self.xCloseLeft
+        v = self.yCloseLeft
+        disparity = self.xCloseLeft - self.xCloseRight
+        
+        stereoModel = image_geometry.StereoCameraModel()
+        stereoModel.fromCameraInfo(self.leftInfo, self.RightInfo)
+        (x,y,z) = stereoModel.projectPixelTo3d((u,v), disparity)
+        
+        cameraPoint = PointStamped()
+        cameraPoint.header.frame_id = self.leftInfo.header.frame_id
+        cameraPoint.header.stamped = rospy.Time.now()
+        cameraPoint.point = Point(x,y,z)
+
+        self.listener.waitForTransform(self.outputFrame, cameraPoint.header.frame_id, rospy.Time.now(), rospy.Duration(4.0))
+        outputPoint = self.listener.transformPoint(self.outputFrame, cameraPoint)
+
+        for key, lock in self.locks:
+            lock.release()
+
+        return outputPoint
+
+    def leftInfoCallback(self, info):
+        self.locks['leftInfo'].acquire()
+        self.leftInfo = info
+        self.locks['leftInfo'].release()
+
+    def rightInfoCallback(self, info):
+        self.locks['rightInfo'].acquire()
+        self.rightInfo = info
+        self.locks['rightInfo'].release()
+        return
+
+    def leftImageCallback(self, image):
+        self.locks['leftImage'].acquire()
         colorImg, self.yCloseLeft, self.xCloseLeft = self.process(image)
         cv.ShowImage('Left Viewer', colorImg)
         cv.WaitKey(3)
+        self.locks['leftImage'].release()
 
-    def rightCallback(self, image):
+    def rightImageCallback(self, image):
+        self.locks['rightImage'].acquire()
         colorImg, self.yCloseRight, self.xCloseRight = self.process(image)
         cv.ShowImage('Right Viewer', colorImg)
         cv.WaitKey(3)
+        self.locks['rightImage'].release()
 
     def process(self, image):
         try:
@@ -107,7 +171,12 @@ class ImageProcessingClass():
 def test():
     rospy.init_node('image_processing')
     ip = ImageProcessingClass()
-    rospy.spin()
+    
+    while not rospy.is_shutdown():
+        if ip.hasReceivedInfo():
+            ptStamped = self.convertStereo()
+            rospy.loginfo(ptStamped.point)
+        rospy.sleep(.2)
 
 
 def webcam():

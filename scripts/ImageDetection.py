@@ -13,6 +13,7 @@ import math
 
 import Util
 from Constants import ConstantsClass
+from image_proc import ImageProcessingClass
 
 from threading import Lock
 
@@ -178,5 +179,4 @@ class ImageDetectionClass():
 if __name__ == '__main__':
       rospy.init_node('image_detection_node')
       imageDetector = ImageDetectionClass()
-      while True:
-            rospy.sleep(10)
+      rospy.spin()
