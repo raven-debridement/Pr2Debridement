@@ -117,7 +117,7 @@ class MasterClass():
             
                 ############# need to eventually take gripperPose into account
                 reportedGripperPose = self.commandGripper.gripperPose()
-                gripperPoseDifference = subPoses(reportedGripperPose, gripperPose, self.listener)
+                gripperPoseDifference = subPoses(reportedGripperPose, gripperPose)
                 desiredObjectPose = addPoses(objectPose, gripperPoseDifference)
                 #print('objectPose')
                 #print(objectPose)

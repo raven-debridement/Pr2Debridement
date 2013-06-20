@@ -89,7 +89,6 @@ def convertToSameFrameAndTime(ps0, ps1, listener):
     """
     Converts point/pose 0 and point/pose 1 to the same frame
     """
-    
     ps0frame, ps1frame = ps0.header.frame_id, ps1.header.frame_id
 
     # need to be on same time so transformation will work
@@ -110,11 +109,10 @@ def euclideanDistance(ps0, ps1, listener=None, xPlane=True, yPlane=True, zPlane=
     Returns euclidean distance between two PointStamped
     """
     # must be in same reference frame
-    if listener != None:
-        try:
-            ps0, ps1 = convertToSameFrameAndTime(ps0, ps1, listener)
-        except tf.Exception:
-            return float("inf")
+    try:
+        ps0, ps1 = convertToSameFrameAndTime(ps0, ps1, listener)
+    except tf.Exception:
+        return float("inf")
 
     
     if ps0 == None or ps1 == None:
@@ -219,7 +217,7 @@ def addPoses(ps0, ps1, listener=None):
     """
     Returns a PoseStamped of ps0+ps1
     """
-    return combinePoses(ps0,ps1,operator.add,listener)
+    return combinePoses(ps0,ps1,operator.add, listener)
 
 def subPoses(ps0, ps1, listener=None):
     """
