@@ -14,7 +14,11 @@ import message_filters
 
 class ImageProcessingClass():
     def __init__(self):
+        self.yCloseLeft = self.xCloseLeft = 0
+        self.yCloseRight = self.xCloseRight = 0
+
         self.bridge = CvBridge()
+
         rospy.Subscriber('/wide_stereo/left/image_rect_color', Image, self.leftCallback)
         rospy.Subscriber('/wide_stereo/right/image_rect_color', Image, self.rightCallback)
 
@@ -27,11 +31,6 @@ class ImageProcessingClass():
         syncImage.registerCallback(self.stereoCallback)
         """
 
-    def stereoCallback(self, leftImage, rightImage):
-        #self.process(rightImage)
-        rospy.loginfo('stereo')
-        return
-
     def leftCallback(self, image):
         colorImg, self.yCloseLeft, self.xCloseLeft = self.process(image)
         cv.ShowImage('Left Viewer', colorImg)
@@ -43,22 +42,23 @@ class ImageProcessingClass():
         cv.WaitKey(3)
 
     def process(self, image):
-        #print(image.header.frame_id)
         try:
             colorImg = self.bridge.imgmsg_to_cv(image, "bgr8")
         except CvBridgeError, e:
             return
 
-
-        
         numBits = 8
         numChannels = 3
         hsvImg = cv.CreateImage(cv.GetSize(colorImg), numBits, numChannels)
 
+        # smooth out
         cv.Smooth(colorImg, colorImg, cv.CV_GAUSSIAN, 3, 0)
 
+        # convert to hsv
         hsvImg = cv.CreateImage(cv.GetSize(colorImg), numBits, numChannels)
         cv.CvtColor(colorImg, hsvImg, cv.CV_BGR2HSV)
+        
+        # threshold
         threshImg = cv.CreateImage(cv.GetSize(hsvImg), numBits, 1)
         
         lowerHSV = cv.Scalar(0, 120, 120)
@@ -69,8 +69,7 @@ class ImageProcessingClass():
         cv.Erode(threshImg, threshImg, None, 1)
         cv.Dilate(threshImg, threshImg, None, 1)
 
-        width, height = cv.GetSize(threshImg)
-
+        # find unfiltered pixels
         mat = cv.GetMat(threshImg)
 
         yxCoords = []
@@ -94,7 +93,7 @@ class ImageProcessingClass():
         #print('('+str(xClose)+','+str(yClose)+')')
         cv.Set2D(colorImg, yClose, xClose, (255,0,0))
 
-        return (colorImg, (yClose, xClose))
+        return (colorImg, yClose, xClose)
         """
         rospy.loginfo('Showing in viewer')
         cv.ShowImage(cam + ' Viewer', colorImg)
