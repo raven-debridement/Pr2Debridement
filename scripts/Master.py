@@ -125,7 +125,6 @@ class MasterClass():
                 #print(desiredObjectPose)
                 ########################################################
                 self.armControl.goToArmPose(desiredObjectPose, False)
-                #self.armControl.goToArmPose(objectPose, self.listener)
 
                 if timeout.hasTimedOut():
                     success = False
@@ -158,7 +157,6 @@ class MasterClass():
             while not withinBounds(gripperPose, vertObjectPose, transBound, rotBound, self.listener):
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
             
-                # need to eventually take gripperPose into account
                 self.armControl.goToArmPose(vertObjectPose, False)
 
                 if timeout.hasTimedOut():
