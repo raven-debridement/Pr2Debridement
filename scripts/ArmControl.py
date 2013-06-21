@@ -1,11 +1,17 @@
 #!/usr/bin/env python
 
+"""
+Note: environment loads a xml file for the table. Must change depending on what table you are using
+"""
+
 import roslib; roslib.load_manifest('Pr2Debridement')
 import openravepy
 import trajoptpy
 import json
 import numpy as np
 import trajoptpy.kin_utils as ku
+import os
+import random
 
 import rospy
 import openravepy as rave
@@ -56,10 +62,13 @@ class ArmControlClass (pr2.PR2):
         # number of iterations for trajopt
         self.n_steps = 60
 
-        self.env.Load('/home/gkahn/Berkeley/Research/ros_ws/sandbox/Pr2Debridement/data/table.xml')
+
+        table_path = os.path.dirname(__file__) + '/../data/SDHtable.xml'
+        #table_path = os.path.dirname(__file__) + '/../data/table.xml'
+        self.env.Load(table_path)
         
         #trajoptpy.SetInteractive(True)
-        slow_down_ratio = .5
+        slow_down_ratio = .5 # should be at .5 for real pr2
 
         self.robot.SetDOFVelocityLimits(slow_down_ratio*self.robot.GetDOFVelocityLimits())
         self.robot.SetDOFAccelerationLimits(slow_down_ratio*self.robot.GetDOFAccelerationLimits())
@@ -252,8 +261,8 @@ def test():
     rospy.init_node('main_node')
     leftArm = ArmControlClass(ConstantsClass.ArmName.Left)
     
-    #leftArm.goToSide()
-    #return
+    leftArm.goToSide()
+    return
 
     import tf.transformations as tft
     import tf
@@ -283,13 +292,13 @@ def test():
 
     rospy.Subscriber(ConstantsClass.StereoName, PointStamped, stereoCallback)
 
-    while True:
+    while not rospy.is_shutdown():
         rospy.loginfo('outer loop')
         if test.desiredPose != None:
             rospy.loginfo('inner loop')            
             
 
-            leftArm.goToArmPose(test.desiredPose, True, ConstantsClass.Request.goNear)
+            leftArm.goToArmPose(test.desiredPose, False, ConstantsClass.Request.goNear)
             test.desiredPose = None
             return
             

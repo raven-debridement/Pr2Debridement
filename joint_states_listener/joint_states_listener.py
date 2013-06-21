@@ -9,6 +9,7 @@ from joint_states_listener.srv import *
 from sensor_msgs.msg import JointState
 import threading
 
+import random
 
 #holds the latest states obtained from joint_states messages
 class LatestJointStates:
@@ -24,7 +25,6 @@ class LatestJointStates:
         self.thread.start()
 
         s = rospy.Service('return_joint_states', ReturnJointStates, self.return_joint_states)
-        
 
     #thread function: listen for joint_states messages
     def joint_states_listener(self):

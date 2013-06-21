@@ -56,7 +56,6 @@ class MasterClass():
 
             rospy.loginfo('Searching for object point')
             # find object point and pose
-            #if self.imageDetector.hasFoundObject():
             objectPose = self.imageDetector.getObjectPose()
             if objectPose == None:
                 continue
@@ -103,11 +102,15 @@ class MasterClass():
                 continue
 
             
+
+
+
+
             rospy.sleep(delay)
             rospy.loginfo('Visual servoing to the object point')
             # visual servo to get to the object point
             transBound = .01
-            rotBound = .01
+            rotBound = .1
 
             success = True
             timeout.start()
@@ -119,6 +122,7 @@ class MasterClass():
                 reportedGripperPose = self.commandGripper.gripperPose()
                 gripperPoseDifference = subPoses(reportedGripperPose, gripperPose)
                 desiredObjectPose = addPoses(objectPose, gripperPoseDifference)
+                
                 #print('objectPose')
                 #print(objectPose)
                 #print('desiredObjectPose')
@@ -139,7 +143,7 @@ class MasterClass():
             rospy.sleep(delay)
             rospy.loginfo('Closing the gripper')
             # close gripper (consider not all the way)
-            if not self.commandGripper.closeGripper():
+            if not self.commandGripper.setGripper(.5):
                 continue
 
             
@@ -166,6 +170,9 @@ class MasterClass():
 
             if not success:
                 continue
+
+
+
 
 
             rospy.sleep(delay)

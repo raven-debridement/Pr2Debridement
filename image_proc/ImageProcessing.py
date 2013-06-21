@@ -221,7 +221,7 @@ class ImageProcessingClass():
         #print('('+str(xClose)+','+str(yClose)+')')
         cv.Set2D(colorImg, yClose, xClose, (255,0,0))
 
-        return (colorImg, True, (xClose, yClose), (xCentroid, yCentroid))
+        return (threshImg, True, (xClose, yClose), (xCentroid, yCentroid))
 
         
 
