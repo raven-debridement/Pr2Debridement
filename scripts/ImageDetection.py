@@ -21,6 +21,13 @@ ids_to_joints = {0: ConstantsClass.GripperName.Left,
                  1: ConstantsClass.GripperName.Right}
 
 class ImageDetectionClass():
+    
+      class State():
+            CalibrateLeft = 0
+            CalibrateRight = 1
+            Calibrated = 2
+            Calibrating = 3 # waiting for signal to calibrate left or right
+
       """
       Used to detect object, grippers, and receptacle
       """
@@ -51,6 +58,7 @@ class ImageDetectionClass():
             self.objectLock = Lock()
 
             self.listener = tf.TransformListener()
+            self.state = State.Calibrating
 
             # image processing to find object
             self.objectProcessing = ImageProcessingClass()
@@ -62,6 +70,15 @@ class ImageDetectionClass():
             #rospy.Subscriber('/wide_stereo/right/image_rect', Image,self.imageCallback)
             # Get grippers using AR
             rospy.Subscriber('/stereo_pose', ARMarkers, self.arCallback)
+
+      def setState(self, state):
+            self.state = state
+
+      def setLeftOffset(self, offset):
+            self.leftOffset = offset
+
+      def setRightOffset(self, offset):
+            self.rightOffset = offset
 
       def stereoCallback(self, msg):
             """
@@ -85,23 +102,48 @@ class ImageDetectionClass():
                 pose.header.frame_id = ConstantsClass.Camera
                 pose.pose = marker.pose.pose
                 if ids_to_joints(marker.id) == ConstantsClass.GripperName.Left:
-                    self.listener.waitForTransform(ConstantsClass.GripperName.Left,
-                                                   ConstantsClass.Camera,
-                                                   rospy.Time(),
-                                                   rospy.Duration(4.0))
-                    gp = self.listener.transformPose(ConstantsClass.GripperName.Left, pose)
-                    print "left", gp
-                    self.imageCallback(msg)
-                    #self.leftGripperPose = pose
+                    if self.state == State.calibrateLeft:
+                        self.listener.waitForTransform(ConstantsClass.GripperName.Left,
+                                                       ConstantsClass.Camera,
+                                                       rospy.Time(),
+                                                       rospy.Duration(4.0))
+                        gp = self.listener.transformPose(ConstantsClass.GripperName.Left, pose)
+                        print "left offset", gp
+                        self.leftOffset = gp.pose.position
+                        self.state = State.calibrated
+                    elif self.state == State.calibrated:
+                        pos = Util.positionSubtract(gp.pose.position, self.leftOffset)
+                        pose.pose.position = pos
+                        self.listener.waitForTransform(ConstantsClass.GripperName.Left,
+                                                       ConstantsClass.Camera,
+                                                       rospy.Time(),
+                                                       rospy.Duration(4.0))
+                        gp = self.listener.transformPose(ConstantsClass.GripperName.Left, pose)
+                        print "left", gp
+                        self.leftGripperPose = pose
                 if ids_to_joints(marker.id) == ConstantsClass.GripperName.Right:
-                    self.listener.waitForTransform(ConstantsClass.GripperName.Right,
-                                                   ConstantsClass.Camera,
-                                                   rospy.Time(),
-                                                   rospy.Duration(4.0))
-                    gp = self.listener.transformPose(ConstantsClass.GripperName.Right, pose)
-                    print "right", gp
-                    self.imageCallback(msg)
-                    #self.rightGripperPose = pose
+                    if self.state == State.calibrateRight:
+                        self.listener.waitForTransform(ConstantsClass.GripperName.Right,
+                                                       ConstantsClass.Camera,
+                                                       rospy.Time(),
+                                                       rospy.Duration(4.0))
+                        gp = self.listener.transformPose(ConstantsClass.GripperName.Right, pose)
+                        print "right offset", gp
+                        self.rightOffset = gp.pose.position
+                        self.state = State.calibrated
+                    elif self.state == State.calibrated:
+                        pos = Util.positionSubtract(gp.pose.position, self.rightOffset)
+                        pose.pose.position = pos
+                        self.listener.waitForTransform(ConstantsClass.GripperName.Right,
+                                                       ConstantsClass.Camera,
+                                                       rospy.Time(),
+                                                       rospy.Duration(4.0))
+                        gp = self.listener.transformPose(ConstantsClass.GripperName.Right, pose)
+                        print "right offset", gp
+                        self.rightGripperPose = pose
+
+      def isCalibrated(self):
+            return self.state == State.calibrated
                 
 
       def imageCallback(self, msg):
@@ -239,7 +281,14 @@ def test():
             else:
                   print('Not Found')
             rospy.sleep(.5)
+
+def testCalibration():
+    rospy.init_node('image_detection_node')
+    imageDetector = ImageDetectionClass()
+    while not rospy.is_shutdown():
+        imageDetector.setState(ImageDetectionClass.State.CalibrateLeft)
+        rospy.sleep(.5)
       
 
 if __name__ == '__main__':
-      test()
+      testCalibration()

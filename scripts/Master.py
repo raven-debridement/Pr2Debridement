@@ -26,9 +26,11 @@ class MasterClass():
         if (armName == ConstantsClass.ArmName.Left):
             self.gripperName = ConstantsClass.GripperName.Left
             self.toolframe = ConstantsClass.ToolFrame.Left
+            self.calibrateGripperState = ImageDetectionClass.State.CalibrateLeft
         else:
             self.gripperName = ConstantsClass.GripperName.Right
             self.toolframe = ConstantsClass.ToolFrame.Right
+            self.calibrateGripperState = ImageDetectionClass.State.CalibrateRight
 
         self.listener = tf.TransformListener()
 
@@ -49,6 +51,12 @@ class MasterClass():
             transBound = .06
             # rotation bound
             rotBound = float("inf")
+
+            
+            rospy.loginfo('Calibrating gripper')
+            self.imageDetector.setState(self.calibrateGripperState)
+            if not self.isCalibrated():
+                continue
             
             rospy.loginfo('Searching for the receptacle')
             if not self.imageDetector.hasFoundReceptacle():

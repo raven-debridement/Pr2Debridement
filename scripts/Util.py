@@ -9,6 +9,13 @@ import tf
 import tf.transformations as tft
 import operator
 
+def positionSubtract(p1, offset):
+    pos = Point()
+    pos.x = p1.x - offset.x
+    pos.y = p1.y - offset.y
+    pos.z = p1.z - offset.z
+    return pos
+
 def xyzAndFrameToPointStamped(x, y, z, frame_id):
     pStamped = PointStamped()
     
