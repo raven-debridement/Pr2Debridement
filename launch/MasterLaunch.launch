@@ -2,7 +2,7 @@
 
   <env name="PYTHONPATH" value="$(env PYTHONPATH)" />
 
-  <node name="joint_states_node" pkg="joint_states_listener" type="joint_states_listener.py" respawn="false" />
+  <node name="joint_states_node" pkg="Pr2Debridement" type="joint_states_listener.py" respawn="false" />
 
   <node name="master_node" pkg="Pr2Debridement" type="Master.py" respawn="false" output="screen" />
 
