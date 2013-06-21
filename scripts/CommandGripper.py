@@ -6,22 +6,31 @@ roslib.load_manifest('Pr2Debridement')
 import rospy
 import sys
 import actionlib
-from actionlib_msgs.msg import *
-from pr2_controllers_msgs.msg import *
+from pr2_controllers_msgs.msg import Pr2GripperCommandAction, Pr2GripperCommandGoal, Pr2GripperCommand
+from geometry_msgs.msg import PoseStamped
 
-from Constants import *
+from Constants import ConstantsClass
 
 class CommandGripperClass():
     def __init__(self, gripperName):
         """
         gripperName must be from ConstantsClass.GripperName
         """
+
+        if gripperName == ConstantsClass.GripperName.Left:
+            self.toolframe = ConstantsClass.ToolFrame.Left
+        else:
+            self.toolframe = ConstantsClass.ToolFrame.Right
+
         # max gripper range spec is 90mm
         self.maxRange = .09
         # no effort limit (may change)
         self.effortLimit = -1
+        # distance from center of gripper to tip
+        self.gripperLength = .05
 
         self.client = actionlib.SimpleActionClient(gripperName + '_controller/gripper_action', Pr2GripperCommandAction)
+
 
     def openGripper(self):
         return self.setGripper(1)
@@ -34,31 +43,38 @@ class CommandGripperClass():
 
         self.client.wait_for_server()
         self.client.send_goal(Pr2GripperCommandGoal(Pr2GripperCommand(position, self.effortLimit)))
-        self.client.wait_for_result()
-
-        result = self.client.get_result()
         
+        #temp fix
+        #rospy.sleep(2)
+        #return True
+
+        self.client.wait_for_result()
+        return True
+
+        # below not guaranteed to work for grasping
+        # result = self.client.get_result()        
+        # return (result.reached_goal) or (result.stalled)
+
+    def gripperLength(self):
+        return self.gripperLength
+
+    def gripperPose(self):
         """
-        if result.stalled:
-            print('stalled!')
-        elif result.reached_goal:
-            print('reached goal!')
-        else:
-            print('failed!')
+        Returns a PoseStamped of current gripper pose
         """
+        pose = PoseStamped()
+        pose.header.stamp = rospy.Time.now()
+        pose.header.frame_id = self.toolframe
+        pose.pose.orientation.w = 1
+        return pose
 
-        return ((self.client.get_state() == GoalStatus.SUCCEEDED) or result.stalled)
 
-
-
-#for testing
-if __name__ == '__main__':
-    rospy.init_node('test_gripper_class')
+def test():
 
     success = True
     timeDelay = 3
 
-    cgl = CommandGripperClass(ConstantsClass.GripperName.Left)    
+    cgl = CommandGripperClass(ConstantsClass.GripperName.Left)
     success &= cgl.openGripper()
     rospy.sleep(timeDelay)
     success &= cgl.closeGripper()
@@ -95,3 +111,10 @@ if __name__ == '__main__':
     else:
         print('CommandGripperClass failed!!!')
     
+
+#for testing
+if __name__ == '__main__':
+    rospy.init_node('gripper_node')
+    #cgl = CommandGripperClass(ConstantsClass.GripperName.Left)
+    #cgl.openGripper()
+    test()

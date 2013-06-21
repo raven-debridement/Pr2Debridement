@@ -8,34 +8,41 @@ import sys
 from geometry_msgs.msg import Twist, PointStamped, PoseStamped, Quaternion
 from sensor_msgs.msg import Image
 import tf
+import tf.transformations as tft
+import math
 
 import Util
-from Constants import *
+from Constants import ConstantsClass
 
-from threading import *
+from threading import Lock
 
 class ImageDetectionClass():
       """
-      Used to detect cancer, grippers, and receptacle
+      Used to detect object, grippers, and receptacle
       """
       def __init__(self, normal=None):
             #PointStamped list
-            self.cancerPoints = []
+            self.objectPoints = []
             #gripper pose. Must both have frame_id of respective tool frame
             self.leftGripperPose = None
             self.rightGripperPose = None
             #receptacle point. Must have frame_id of global (or main camera) frame
+            #is the exact place to drop off (i.e. don't need to do extra calcs to move away
             self.receptaclePoint = None
             #table normal. Must be according to global (or main camera) frame
             if normal != None:
                   self.normal = normal
             else:
                   # default to straight up
-                  self.normal = Util.makeQuaternion(.5**.5, 0, -.5**.5, 0)
+                  #self.normal = Util.makeQuaternion(.5**.5, 0, -.5**.5, 0)
+                  
+                  # default to sideways
+                  quat = tft.quaternion_from_euler(0,0,-math.pi/2)
+                  self.normal = Util.makeQuaternion(quat[3], quat[0], quat[1], quat[2])
 
 
             #Lock so two arms can access one ImageDetectionClass
-            self.cancerLock = Lock()
+            self.objectLock = Lock()
 
             # Temporary. Will eventually be placed with real image detection
             # Will subscribe to camera feeds eventually
@@ -45,16 +52,16 @@ class ImageDetectionClass():
 
       def stereoCallback(self, msg):
             """
-            Temporary. First click sets receptaclePoint, all others are cancerPoints
+            Temporary. First click sets receptaclePoint, all others are objectPoints
             """
             if self.receptaclePoint == None:
                   self.receptaclePoint = msg
-                  self.receptaclePoint.point.z += .1
+                  self.receptaclePoint.point.z += .25
             else:
-                  self.cancerLock.acquire()
-                  msg.point.z -= .05 # this is half the "height" of the cancer/coke/w.e.
-                  self.cancerPoints.append(msg)
-                  self.cancerLock.release()
+                  self.objectLock.acquire()
+                  msg.point.z -= .03 # so gripper doesn't pick up on lip of can
+                  self.objectPoints.append(msg)
+                  self.objectLock.release()
 
       def imageCallback(self, msg):
             """
@@ -75,36 +82,45 @@ class ImageDetectionClass():
             self.leftGripperPose = lgp
             
 
-      def hasFoundCancer(self):
-            return len(self.cancerPoints) > 0
+      def hasFoundObject(self):
+            return len(self.objectPoints) > 0
 
-      def getCancerPose(self):
+      def getObjectPose(self):
             """
-            Returns cancer point plus the table normal as the orientation
-
-            Removes specific cancer from list
+            Returns object point plus the table normal as the orientation
             """
-            cancerPoint = self.getCancerPoint()
-            return Util.pointStampedToPoseStamped(cancerPoint, self.normal)
+            objectPoint = self.getObjectPoint()
+            return Util.pointStampedToPoseStamped(objectPoint, self.normal)
       
-      def getCancerPoint(self):
+      def getObjectPoint(self):
             """
-            May update to take argument currPos, and then choose cancer closest to currPos
+            May update to take argument currPos, and then choose object closest to currPos
             
-            Also, keep track of cancer points and not cancer poses because we assume the cancer will be on a flat table.
-
-            Removes specific cancer from list
+            Also, keep track of object points and not object poses because we assume the object will be on a flat table.
             """
-            if not self.hasFoundCancer():
+            if not self.hasFoundObject():
                   return None
 
-            self.cancerLock.acquire()
-            cancerPoint = self.cancerPoints[-1]
-            self.cancerPoints = self.cancerPoints[:-1]
-            self.cancerLock.release()
+            self.objectLock.acquire()
+            objectPoint = self.objectPoints[0]
+            objectPoint.header.stamp = rospy.Time.now()
+            #self.objectPoints = self.objectPoints[:-1]
+            self.objectLock.release()
 
-            return cancerPoint
+            return objectPoint
       
+      def removeFirstObjectPoint(self):
+            """
+            Debug tool to remove object point from list
+            """
+            if not self.hasFoundObject():
+                  return None
+
+            self.objectLock.acquire()
+            self.objectPoints = self.objectPoints[1:]
+            self.objectLock.release()
+
+
       def hasFoundGripper(self, gripperName):
             """
             gripperName must be from ConstantsClass.GripperName
@@ -127,6 +143,7 @@ class ImageDetectionClass():
                   return self.leftGripperPose
             else:
                   return self.rightGripperPose
+
 
       def getGripperPoint(self, gripperName):
             """
