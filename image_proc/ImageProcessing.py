@@ -11,6 +11,7 @@ from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge, CvBridgeError
 from geometry_msgs.msg import Point, PointStamped
 import tf
+import image_geometry
 
 import message_filters
 from threading import Lock
@@ -19,12 +20,24 @@ class ImageProcessingClass():
     def __init__(self):
         self.yCloseLeft = self.xCloseLeft = 0
         self.yCloseRight = self.xCloseRight = 0
+        
+        self.xyCloseLeft = (0,0)
+        self.xyCloseRight = (0,0)
+        
+        self.xyCentroidLeft = (0,0)
+        self.xyCentroidRight = (0,0)
+        
+        self.leftInfo = self.rightInfo = None
 
         self.locks = dict()
         self.locks['leftImage'] = Lock()
         self.locks['rightImage'] = Lock()
+        #self.locks['stereo'] = Lock()
         self.locks['leftInfo'] = Lock()
         self.locks['rightInfo'] = Lock()
+
+        self.foundColorLeft = False
+        self.foundColorRight = False
 
         self.listener = tf.TransformListener()
         self.outputFrame = 'base_link'
@@ -37,49 +50,75 @@ class ImageProcessingClass():
         rospy.Subscriber('/wide_stereo/left/camera_info', CameraInfo, self.leftInfoCallback)
         rospy.Subscriber('/wide_stereo/right/camera_info', CameraInfo, self.rightInfoCallback)
         
+
+
+        # syncing version
+        #leftImageSub = message_filters.Subscriber('/wide_stereo/left/image_rect_color', Image)
+        #rightImageSub = message_filters.Subscriber('/wide_stereo/right/image_rect_color', Image)
+        #leftInfoSub = message_filters.Subscriber('/wide_stereo/left/camera_info', CameraInfo)
+        #rightInfoSub = message_filters.Subscriber('/wide_stereo/right/camera_info', CameraInfo)
+
+        #syncImage = message_filters.TimeSynchronizer([leftImageSub, rightImageSub], 10)
+        #syncImage.registerCallback(self.stereoCallback)
+        
         # let some camera feeds in
         rospy.sleep(1)
 
+    def getCentroid(self):
         """
-        # syncing version is slow and inconsistent
-        leftImageSub = message_filters.Subscriber('/wide_stereo/left/image_rect_color', Image)
-        rightImageSub = message_filters.Subscriber('/wide_stereo/right/image_rect_color', Image)
-
-        syncImage = message_filters.TimeSynchronizer([leftImageSub, rightImageSub], 10)
-        syncImage.registerCallback(self.stereoCallback)
-        """
-
-    def hasReceivedInfo(self):
-        return (self.leftInfo != None and self.rightInfo != None)
-
-    def convertStereo(self):
-        if not self.hasReceivedInfo()
-            return None
-
-        for key, lock in self.locks:
-            lock.acquire()
-
-        u = self.xCloseLeft
-        v = self.yCloseLeft
-        disparity = self.xCloseLeft - self.xCloseRight
+        Returns PointStamped of the centroid of the color being processed
         
+        Returns None if lacks camera info or camera images
+        """
+        u, v = self.xyCentroidLeft
+        disparity = self.xyCentroidLeft[0] - self.xyCentroidRight[0]
+
+        return self.convertStereo(u, v, disparity)
+
+    def getClosestToCentroid(self):
+        """
+        Returns PointStamped of the nearest instance of the color to the centroid
+
+        Returns None if lacks camera info or camera images
+
+        If a solid object, then getCentroid and getClosestToCentroid are the same
+        """
+        u, v = self.xyCloseLeft
+        disparity = self.xyCloseLeft[0] - self.xyCloseRight[0]
+
+        return self.convertStereo(u, v, disparity)
+
+    def canProcess(self):
+        return (self.leftInfo != None and self.rightInfo != None and self.foundColorLeft and self.foundColorRight)
+
+    def convertStereo(self, u, v, disparity):
+        """
+        Converts two pixel coordinates u and v along with the disparity to give PointStamped       
+        """
+
+        if not self.canProcess():
+            return None
+        
+        for key in self.locks.keys():
+            self.locks[key].acquire()
+
         stereoModel = image_geometry.StereoCameraModel()
-        stereoModel.fromCameraInfo(self.leftInfo, self.RightInfo)
+        stereoModel.fromCameraInfo(self.leftInfo, self.rightInfo)
         (x,y,z) = stereoModel.projectPixelTo3d((u,v), disparity)
         
         cameraPoint = PointStamped()
         cameraPoint.header.frame_id = self.leftInfo.header.frame_id
-        cameraPoint.header.stamped = rospy.Time.now()
+        cameraPoint.header.stamp = rospy.Time.now()
         cameraPoint.point = Point(x,y,z)
 
         self.listener.waitForTransform(self.outputFrame, cameraPoint.header.frame_id, rospy.Time.now(), rospy.Duration(4.0))
         outputPoint = self.listener.transformPoint(self.outputFrame, cameraPoint)
 
-        for key, lock in self.locks:
-            lock.release()
+        for key in self.locks.keys():
+            self.locks[key].release()
 
         return outputPoint
-
+    
     def leftInfoCallback(self, info):
         self.locks['leftInfo'].acquire()
         self.leftInfo = info
@@ -89,23 +128,45 @@ class ImageProcessingClass():
         self.locks['rightInfo'].acquire()
         self.rightInfo = info
         self.locks['rightInfo'].release()
-        return
+        
+
+    """
+    def stereoCallback(self, leftImage, rightImage):
+        self.locks['stereo'].acquire()
+        
+        colorImgLeft, foundLeft, self.xyCloseLeft, self.xyCentroidLeft = self.process(leftImage)
+        colorImgRight, foundRight, self.xyCloseRight, self.xyCentroidRight = self.process(rightImage)
+
+        self.hasFoundColor = foundLeft and foundRight
+        
+        #cv.ShowImage('Right Viewer', colorImgRight)
+        #cv.ShowImage('Left Viewer', colorImgLeft)
+        #cv.WaitKey(3)
+
+        self.locks['stereo'].release()
+    """
 
     def leftImageCallback(self, image):
         self.locks['leftImage'].acquire()
-        colorImg, self.yCloseLeft, self.xCloseLeft = self.process(image)
-        cv.ShowImage('Left Viewer', colorImg)
-        cv.WaitKey(3)
+        colorImg, self.foundColorLeft, self.xyCloseLeft, self.xyCentroidLeft = self.process(image)
+        #cv.ShowImage('Left Viewer', colorImg)
+        #cv.WaitKey(3)
         self.locks['leftImage'].release()
 
     def rightImageCallback(self, image):
         self.locks['rightImage'].acquire()
-        colorImg, self.yCloseRight, self.xCloseRight = self.process(image)
-        cv.ShowImage('Right Viewer', colorImg)
-        cv.WaitKey(3)
+        colorImg, self.foundColorRight, self.xyCloseRight, self.xyCentroidRight = self.process(image)
+        #cv.ShowImage('Right Viewer', colorImg)
+        #cv.WaitKey(3)
         self.locks['rightImage'].release()
+    
 
     def process(self, image):
+        """
+        Takes in a sensor_msgs/Image and outputs a tuple for the closest pixel coordinates to the centroid that are the correct color and outputs the centroid of the correct color
+
+        Temporarily, first argument is a modified opencv image, for debugging
+        """
         try:
             colorImg = self.bridge.imgmsg_to_cv(image, "bgr8")
         except CvBridgeError, e:
@@ -141,6 +202,9 @@ class ImageProcessingClass():
             for y in range(mat.height):
                 if mat[y,x] > 0.0:
                     yxCoords.append((y,x))
+
+        if len(yxCoords) == 0:
+            return colorImg, False, (0,0), (0,0)
                     
         yCentroid = sum([y for y,x in yxCoords])/len(yxCoords)
         xCentroid = sum([x for y,x in yxCoords])/len(yxCoords)
@@ -157,15 +221,8 @@ class ImageProcessingClass():
         #print('('+str(xClose)+','+str(yClose)+')')
         cv.Set2D(colorImg, yClose, xClose, (255,0,0))
 
-        return (colorImg, yClose, xClose)
-        """
-        rospy.loginfo('Showing in viewer')
-        cv.ShowImage(cam + ' Viewer', colorImg)
+        return (colorImg, True, (xClose, yClose), (xCentroid, yCentroid))
 
-        cv.ShowImage(cam + 'Threshold', threshImg)
-        cv.WaitKey(3)
-        """
-    
         
 
 def test():
@@ -173,10 +230,16 @@ def test():
     ip = ImageProcessingClass()
     
     while not rospy.is_shutdown():
-        if ip.hasReceivedInfo():
-            ptStamped = self.convertStereo()
-            rospy.loginfo(ptStamped.point)
-        rospy.sleep(.2)
+        centroid = ip.getCentroid()
+        closest = ip.getClosestToCentroid()
+        if centroid == None or closest == None:
+            print('Not found')
+        else:
+            print('Centroid')
+            print(centroid.point)
+            print('Closest')
+            print(closest.point)
+        rospy.sleep(.5)
 
 
 def webcam():
@@ -226,73 +289,6 @@ def webcam():
         cv.WaitKey(3)
 
 
-def online():
-    posx=0
-    posy=0
-    def getthresholdedimg(im):
-	'''this function take RGB image.Then convert it into HSV for easy colour detection and threshold it with yellow part as white and all other regions as black.Then return that image'''
-	imghsv=cv.CreateImage(cv.GetSize(im),8,3)
-	cv.CvtColor(im,imghsv,cv.CV_BGR2HSV)				# Convert image from RGB to HSV
-	imgthreshold=cv.CreateImage(cv.GetSize(im),8,1)
-        lowerHSV = cv.Scalar(159, 135, 135)
-        upperHSV = cv.Scalar(179, 255, 255)
-        #lowerHSV = cv.Scalar(45, 75, 75)
-        #upperHSV = cv.Scalar(75, 255, 255)
-	cv.InRangeS(imghsv,lowerHSV,upperHSV,imgthreshold)	# Select a range of yellow color
-	return imgthreshold
-
-
-    capture=cv.CaptureFromCAM(0)
-    frame = cv.QueryFrame(capture)
-    frame_size = cv.GetSize(frame)
-    grey_image = cv.CreateImage(cv.GetSize(frame), cv.IPL_DEPTH_8U, 1)
-    test=cv.CreateImage(cv.GetSize(frame),8,3)
-    cv.NamedWindow("Real")
-    cv.NamedWindow("Threshold")
-    while True:
-	color_image = cv.QueryFrame(capture)
-	imdraw=cv.CreateImage(cv.GetSize(frame),8,3)
-	cv.Flip(color_image,color_image,1)
-	cv.Smooth(color_image, color_image, cv.CV_GAUSSIAN, 3, 0)
-	imgyellowthresh=getthresholdedimg(color_image)
-	cv.ShowImage("Threshold",imgyellowthresh)
-        cv.Erode(imgyellowthresh,imgyellowthresh,None,3)
-	cv.Dilate(imgyellowthresh,imgyellowthresh,None,10)
-
-	storage = cv.CreateMemStorage(0)
-	contour = cv.FindContours(imgyellowthresh, storage, cv.CV_RETR_CCOMP, cv.CV_CHAIN_APPROX_SIMPLE)
-	points = []	
-
-#	This is the new part here. ie Use of cv.BoundingRect()
-	while contour:
-		# Draw bounding rectangles
-		bound_rect = cv.BoundingRect(list(contour))
-		contour = contour.h_next()
-		
-		# for more details about cv.BoundingRect,see documentation
-		pt1 = (bound_rect[0], bound_rect[1])
-		pt2 = (bound_rect[0] + bound_rect[2], bound_rect[1] + bound_rect[3])
-		points.append(pt1)
-		points.append(pt2)
-		cv.Rectangle(color_image, pt1, pt2, cv.CV_RGB(255,0,0), 1)
-		lastx=posx
-		lasty=posy
-		posx=cv.Round((pt1[0]+pt2[0])/2)
-		posy=cv.Round((pt1[1]+pt2[1])/2)
-		if lastx!=0 and lasty!=0:
-			cv.Line(imdraw,(posx,posy),(lastx,lasty),(0,255,255))
-			cv.Circle(imdraw,(posx,posy),5,(0,255,255),-1)
-	cv.Add(test,imdraw,test)
-        
-        cv.ShowImage("Real",color_image)
-	#cv.ShowImage("Threshold",imgyellowthresh)
-
-        cv.WaitKey(3)
-
-
-
-
 if __name__ == '__main__':
     test()
     #webcam()
-    #online()

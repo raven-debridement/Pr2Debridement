@@ -22,8 +22,9 @@ class ImageDetectionClass():
       Used to detect object, grippers, and receptacle
       """
       def __init__(self, normal=None):
-            #PointStamped list
-            self.objectPoints = []
+            #PointStamped
+            #self.objectPoint = None
+            
             #gripper pose. Must both have frame_id of respective tool frame
             self.leftGripperPose = None
             self.rightGripperPose = None
@@ -43,7 +44,10 @@ class ImageDetectionClass():
 
 
             #Lock so two arms can access one ImageDetectionClass
-            self.objectLock = Lock()
+            #self.objectLock = Lock()
+
+            # image processing to find object
+            self.objectProcessing = ImageProcessingClass()
 
             # Temporary. Will eventually be placed with real image detection
             # Will subscribe to camera feeds eventually
@@ -58,11 +62,13 @@ class ImageDetectionClass():
             if self.receptaclePoint == None:
                   self.receptaclePoint = msg
                   self.receptaclePoint.point.z += .25
+            """
             else:
                   self.objectLock.acquire()
                   msg.point.z -= .03 # so gripper doesn't pick up on lip of can
-                  self.objectPoints.append(msg)
+                  self.objectPoint = msg
                   self.objectLock.release()
+            """
 
       def imageCallback(self, msg):
             """
@@ -83,14 +89,22 @@ class ImageDetectionClass():
             self.leftGripperPose = lgp
             
 
+      """
       def hasFoundObject(self):
-            return len(self.objectPoints) > 0
+          return self.objectProcessing.canProcess()  
+          #return self.objectPoint != None
+      """
 
       def getObjectPose(self):
             """
             Returns object point plus the table normal as the orientation
+
+            Returns None if no object found
             """
             objectPoint = self.getObjectPoint()
+            if objectPoint == None:
+                  return None
+
             return Util.pointStampedToPoseStamped(objectPoint, self.normal)
       
       def getObjectPoint(self):
@@ -98,29 +112,35 @@ class ImageDetectionClass():
             May update to take argument currPos, and then choose object closest to currPos
             
             Also, keep track of object points and not object poses because we assume the object will be on a flat table.
+
+            Returns None if no object found
             """
-            if not self.hasFoundObject():
+            #if not self.hasFoundObject():
+            #      return None
+
+            objectPoint = self.objectProcessing.getClosestToCentroid()
+            if objectPoint == None:
                   return None
-
-            self.objectLock.acquire()
-            objectPoint = self.objectPoints[0]
-            objectPoint.header.stamp = rospy.Time.now()
-            #self.objectPoints = self.objectPoints[:-1]
-            self.objectLock.release()
-
+            objectPoint.point.z -=.08 #TEMP depends on height of object
+            
             return objectPoint
-      
-      def removeFirstObjectPoint(self):
             """
-            Debug tool to remove object point from list
+            self.objectLock.acquire()
+            objectPoint = self.objectPoint
+            objectPoint.header.stamp = rospy.Time.now()
+            self.objectLock.release()
             """
+            
+      """
+      def removeObjectPoint(self):
+            #Debug tool to remove object point from list
             if not self.hasFoundObject():
                   return None
 
             self.objectLock.acquire()
-            self.objectPoints = self.objectPoints[1:]
+            self.objectPoint = None
             self.objectLock.release()
-
+      """
 
       def hasFoundGripper(self, gripperName):
             """
@@ -174,9 +194,17 @@ class ImageDetectionClass():
             """
             return self.receptaclePoint
 
-            
-
-if __name__ == '__main__':
+def test():     
       rospy.init_node('image_detection_node')
       imageDetector = ImageDetectionClass()
-      rospy.spin()
+      while not rospy.is_shutdown():
+            objectPoint = imageDetector.getObjectPoint()
+            if objectPoint != None:      
+                  print(objectPoint)
+            else:
+                  print('Not Found')
+            rospy.sleep(.5)
+      
+
+if __name__ == '__main__':
+      test()

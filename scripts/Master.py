@@ -56,12 +56,12 @@ class MasterClass():
 
             rospy.loginfo('Searching for object point')
             # find object point and pose
-            if self.imageDetector.hasFoundObject():
-                objectPose = self.imageDetector.getObjectPose()
-                objectPoint = poseStampedToPointStamped(objectPose)
-            else:
+            #if self.imageDetector.hasFoundObject():
+            objectPose = self.imageDetector.getObjectPose()
+            if objectPose == None:
                 continue
-
+            objectPoint = poseStampedToPointStamped(objectPose)
+            
 
             rospy.loginfo('Searching for ' + self.gripperName)
             # find gripper point
@@ -199,7 +199,7 @@ class MasterClass():
             # temporary
             # when image segmentation done, object will automatically be
             # removed b/c it will be in the receptacle
-            self.imageDetector.removeFirstObjectPoint()
+            #self.imageDetector.removeObjectPoint()
 
 
 
