@@ -17,6 +17,9 @@ from image_proc import ImageProcessingClass
 
 from threading import Lock
 
+ids_to_joints = {0: ConstantsClass.GripperName.Left,
+                 1: ConstantsClass.GripperName.Right}
+
 class ImageDetectionClass():
       """
       Used to detect object, grippers, and receptacle
@@ -46,6 +49,8 @@ class ImageDetectionClass():
             #Lock so two arms can access one ImageDetectionClass
             #self.objectLock = Lock()
 
+            self.listener = tf.TransformListener()
+
             # image processing to find object
             self.objectProcessing = ImageProcessingClass()
 
@@ -53,7 +58,9 @@ class ImageDetectionClass():
             # Will subscribe to camera feeds eventually
             rospy.Subscriber('stereo_points_3d', PointStamped, self.stereoCallback)
 
-            rospy.Subscriber('/wide_stereo/right/image_rect', Image,self.imageCallback)
+            #rospy.Subscriber('/wide_stereo/right/image_rect', Image,self.imageCallback)
+            # Get grippers using AR
+            rospy.Subscriber('/stereo_pose', ARMarkers, self.arCallback)
 
       def stereoCallback(self, msg):
             """
@@ -69,6 +76,33 @@ class ImageDetectionClass():
                   self.objectPoint = msg
                   self.objectLock.release()
             """
+
+      def arCallback(self, msg):
+            markers = msg.markers
+            for marker in markers:
+                pose = PoseStamped()
+                pose.header.stamp = marker.header.stamp
+                pose.header.frame_id = ConstantsClass.Camera
+                pose.pose = marker.pose.pose
+                if ids_to_joints(marker.id) == ConstantsClass.GripperName.Left:
+                    self.listener.waitForTransform(ConstantsClass.GripperName.Left,
+                                                   ConstantsClass.Camera,
+                                                   rospy.Time(),
+                                                   rospy.Duration(4.0))
+                    gp = self.listener.transformPose(ConstantsClass.GripperName.Left, pose)
+                    print "left", gp
+                    self.imageCallback(msg)
+                    #self.leftGripperPose = pose
+                if ids_to_joints(marker.id) == ConstantsClass.GripperName.Right:
+                    self.listener.waitForTransform(ConstantsClass.GripperName.Right,
+                                                   ConstantsClass.Camera,
+                                                   rospy.Time(),
+                                                   rospy.Duration(4.0))
+                    gp = self.listener.transformPose(ConstantsClass.GripperName.Right, pose)
+                    print "right", gp
+                    self.imageCallback(msg)
+                    #self.rightGripperPose = pose
+                
 
       def imageCallback(self, msg):
             """
