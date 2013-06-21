@@ -25,8 +25,8 @@ class ImageDetectionClass():
       Used to detect object, grippers, and receptacle
       """
       def __init__(self, normal=None):
-            #PointStamped
-            #self.objectPoint = None
+            #PointStamped TEMP!!!!!!!!!!!!!!
+            self.objectPoint = None
             
             #gripper pose. Must both have frame_id of respective tool frame
             self.leftGripperPose = None
@@ -47,7 +47,8 @@ class ImageDetectionClass():
 
 
             #Lock so two arms can access one ImageDetectionClass
-            #self.objectLock = Lock()
+            # TEMP!!!!
+            self.objectLock = Lock()
 
             self.listener = tf.TransformListener()
 
@@ -68,14 +69,13 @@ class ImageDetectionClass():
             """
             if self.receptaclePoint == None:
                   self.receptaclePoint = msg
-                  self.receptaclePoint.point.z += .25
-            """
+                  self.receptaclePoint.point.z += .2
             else:
                   self.objectLock.acquire()
                   msg.point.z -= .03 # so gripper doesn't pick up on lip of can
                   self.objectPoint = msg
                   self.objectLock.release()
-            """
+            
 
       def arCallback(self, msg):
             markers = msg.markers
@@ -152,29 +152,30 @@ class ImageDetectionClass():
             #if not self.hasFoundObject():
             #      return None
 
-            objectPoint = self.objectProcessing.getClosestToCentroid()
+            #objectPoint = self.objectProcessing.getClosestToCentroid()
+            objectPoint = self.objectPoint
+
             if objectPoint == None:
                   return None
-            objectPoint.point.z -=.08 #TEMP depends on height of object
+            #objectPoint.point.z -=.08 #TEMP depends on height of object
             
-            return objectPoint
-            """
+            # TEMP!!!!!!!!!
             self.objectLock.acquire()
-            objectPoint = self.objectPoint
+            #objectPoint = self.objectPoint
             objectPoint.header.stamp = rospy.Time.now()
             self.objectLock.release()
-            """
+            return objectPoint
             
-      """
+      
       def removeObjectPoint(self):
-            #Debug tool to remove object point from list
+            #Debug tool to remove object point
             if not self.hasFoundObject():
                   return None
 
             self.objectLock.acquire()
             self.objectPoint = None
             self.objectLock.release()
-      """
+      
 
       def hasFoundGripper(self, gripperName):
             """
