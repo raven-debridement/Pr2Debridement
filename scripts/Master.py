@@ -77,6 +77,7 @@ class MasterClass():
                 continue
             
             
+            
             rospy.loginfo('Moving close to the object point')
             nearObjectPose = PoseStamped(objectPose.header, objectPose.pose)
             nearObjectPose.pose.position.y += .1 # 10 cm to left
@@ -90,9 +91,7 @@ class MasterClass():
             timeout.start()
             while not withinBounds(gripperPose, nearObjectPose, transBound, rotBound, self.listener):
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
-                """
-                objectPose = self.imageDetector.getObjectPose()
-                """
+                #objectPose = self.imageDetector.getObjectPose()
                 if timeout.hasTimedOut():
                     success = False
                     break
@@ -100,7 +99,7 @@ class MasterClass():
 
             if not success:
                 continue
-
+            
             
 
 
@@ -109,30 +108,43 @@ class MasterClass():
             rospy.sleep(delay)
             rospy.loginfo('Visual servoing to the object point')
             # visual servo to get to the object point
-            transBound = .01
-            rotBound = .1
+            transBound = .05
+            rotBound = float("inf")
+
+
 
             success = True
             timeout.start()
             while not withinBounds(gripperPose, objectPose, transBound, rotBound, self.listener):
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
                 objectPose = self.imageDetector.getObjectPose()
-            
+                # for servoing to work, make "goal" point be to the right more
+                objectPose.pose.position.y -= .03
+
+                self.armControl.servoToPose(gripperPose, objectPose)
+                raw_input()
                 ############# need to eventually take gripperPose into account
+                """
                 reportedGripperPose = self.commandGripper.gripperPose()
+                if reportedGripperPose == None:
+                    continue
                 gripperPoseDifference = subPoses(reportedGripperPose, gripperPose)
+                if gripperPoseDifference == None:
+                    continue
                 desiredObjectPose = addPoses(objectPose, gripperPoseDifference)
-                
+                if desiredObjectPose == None:
+                    continue
+                """
                 #print('objectPose')
                 #print(objectPose)
                 #print('desiredObjectPose')
                 #print(desiredObjectPose)
                 ########################################################
-                self.armControl.goToArmPose(desiredObjectPose, False)
+                #self.armControl.goToArmPose(desiredObjectPose, False)
 
                 if timeout.hasTimedOut():
                     success = False
-                    break
+                    #break
                 rospy.sleep(.1)
 
             if not success:
@@ -151,8 +163,8 @@ class MasterClass():
             rospy.sleep(delay)
             rospy.loginfo('Moving vertical with the object')
             # visual servo to get to the object point
-            transBound = .01
-            rotBound = .01
+            transBound = .03
+            rotBound = .1
             vertObjectPose = PoseStamped(objectPose.header, objectPose.pose)
             vertObjectPose.pose.position.z += .1
 

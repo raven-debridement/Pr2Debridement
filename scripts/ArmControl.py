@@ -19,9 +19,11 @@ from pr2 import pr2
 
 import time
 import tf
+import tf.transformations as tft
 
 from Constants import ConstantsClass
-from joint_states_listener.srv import ReturnJointStates
+from Util import *
+from Pr2Debridement.srv import ReturnJointStates
 
 from geometry_msgs.msg import PointStamped, PoseStamped
 
@@ -255,14 +257,99 @@ class ArmControlClass (pr2.PR2):
         """
         self.arm.goto_posture('side')
 
+    def servoToPose(self, currPoseStamped, desPoseStamped):
+        """
+        manip = self.robot.GetManipulator(self.armName)
+        J = manip.CalculateJacobian()
+        print(J)
+        print(J.shape)
+        J_pinv = sp.linalg.pinv(J)
+        print(J_pinv)
+        print(J_pinv.shape)
+        """
+        # http://public.cranfield.ac.uk/c5354/teaching/av/LECTURE_NOTES/lecture11-2x2.pdf
+
+        
+        try:
+            currPoseStamped, desPoseStamped = convertToSameFrameAndTime(currPoseStamped, desPoseStamped, self.listener)
+        except tf.Exception:
+            return
+        
+        #self.listener.waitForTransform(currPoseStamped.header.frame_id, desPoseStamped.header.frame_id, rospy.Time.now(), rospy.Duration(10.0))
+        #desPoseStamped = self.listener.transformPose(currPoseStamped.header.frame_id, desPoseStamped)
+        
+        # get the current joint state for joint_names
+        rospy.wait_for_service("return_joint_states")
+        s = rospy.ServiceProxy("return_joint_states", ReturnJointStates)
+        resp = s(self.joint_names)
+        
+        # set current joint values on robot
+        self.robot.SetDOFValues(resp.position, self.robot.GetManipulator(self.armName).GetArmIndices())
+        currJoints = np.array(resp.position)
+        
+        # calculate position and rotation jacobians, combine
+        manip = self.robot.GetManipulator(self.armName)
+        Jpos = manip.CalculateJacobian()
+        Jrot = manip.CalculateRotationJacobian()
+
+        # combine to form Jacobian, then find pseudo-inverse
+        J = np.vstack((Jpos, Jrot)) # Jpos
+        Jinv = np.linalg.pinv(J)
+        
+        
+
+        # get current position
+        pos = currPoseStamped.pose.position
+        currPos = np.array([pos.x, pos.y, pos.z])
+        # get current quaternion
+        quat = currPoseStamped.pose.orientation
+        currQuat = np.array([quat.w, quat.x, quat.y, quat.z])
+        #currEulerx, currEulery, currEulerz = tft.euler_from_quaternion(currQuat)
+        # combine to get current pose
+        #currPose = np.hstack((currPos, currQuat)) # currPos
+
+        # get desired position
+        pos = desPoseStamped.pose.position
+        desPos = np.array([pos.x, pos.y, pos.z])
+        # get desired quaternion
+        quat = desPoseStamped.pose.orientation
+        desQuat = np.array([quat.w, quat.x, quat.y, quat.z])
+        #desEulerx, desEulery, desEulerz = tft.euler_from_quaternion(desQuat)
+        # combine to get desired pose
+        #desPose = np.hstack((desPos, desQuat)) # desPos
+
+        # change in pos/quat
+        deltaPos = desPos - currPos
+        #deltaQuat = tft.quaternion_from_euler(desEulerx-currEulerx, desEulery-currEulery, desEulerz-currEulerz)
+        d = desQuat - currQuat
+        deltaQuat = d - np.dot(d, currQuat)*currQuat
+        # reorder to so x,y,z,w -> w,x,y,z
+        #deltaQuat = np.hstack((np.array(deltaQuat[3]), deltaQuat[0:3]))
+
+        print('Ankush method')
+        print(deltaQuat)
+        print('Simple Subtraction')
+        print(desQuat-currQuat)
+
+        # change in pose
+        deltaPose = np.hstack((deltaPos, deltaQuat))
+        
+        # now do the actually calculation
+        # alpha determines movement rate
+        alpha = .5
+        desJoints = alpha*np.dot(Jinv, deltaPose) + currJoints
+        
+        self.arm.goto_joint_positions(desJoints)
+        
+        
 
 
 def test():
     rospy.init_node('main_node')
     leftArm = ArmControlClass(ConstantsClass.ArmName.Left)
     
-    leftArm.goToSide()
-    return
+    #leftArm.goToSide()
+    #return
 
     import tf.transformations as tft
     import tf
@@ -306,7 +393,12 @@ def test():
         rospy.sleep(.5)
 
 
-
+def test_servo():
+    rospy.init_node('main_node')
+    leftArm = ArmControlClass(ConstantsClass.ArmName.Left)
+    leftArm.servoToPose(PoseStamped(), PoseStamped())
+    return
 
 if __name__ == '__main__':    
     test()
+    #test_servo()

@@ -1,3 +1,9 @@
+"""
+Pr2Debridement uses the classes PR2, Arm, and TrajectoryControllerWrapper most directly
+
+The global variable ADD_NOISE determines if a consistent (but random) offset will be added to the joints.
+(Search ADD_NOISE to see where the noise is added)
+"""
 
 import numpy as np, os.path as osp
 import openravepy as rave
@@ -5,8 +11,6 @@ from numpy import inf, zeros, dot, r_
 from numpy.linalg import norm, inv
 from threading import Thread
 
-#from rapprentice import retiming, math_utils as mu, kinematics_utils as ku, \
-#    conversions as conv, func_utils 
 
 import retiming, math_utils as mu, kinematics_utils as ku, conversions as conv, func_utils
 
@@ -26,6 +30,7 @@ import random
 VEL_RATIO = .2
 ACC_RATIO = .3
 
+# Added by me. Determines if noise will be add to joints
 ADD_NOISE = False
 
 class IKFail(Exception):
@@ -192,7 +197,7 @@ class TrajectoryControllerWrapper(object):
         self.acc_limits = np.array([all_acc_limits[i_rave]*ACC_RATIO for i_rave in self.rave_joint_inds])
 
         ####### ADD NOISE ###############
-        noise_amt = .1
+        noise_amt = .01
         self.joint_noise = np.array([random.uniform(-noise_amt,noise_amt) for _ in range(len(self.ros_joint_inds))])
         ##################################
 
@@ -202,6 +207,9 @@ class TrajectoryControllerWrapper(object):
 
 
     def goto_joint_positions(self, positions_goal):
+        """
+        This method is eventually called by the Cartesian controller (for servoing)
+        """
 
         positions_cur = self.get_joint_positions()
         assert len(positions_goal) == len(positions_cur)
@@ -243,6 +251,9 @@ class TrajectoryControllerWrapper(object):
 
 
     def follow_timed_joint_trajectory(self, positions, velocities, times):
+        """
+        This method is eventually called using trajopt output
+        """
 
         jt = tm.JointTrajectory()
         jt.joint_names = self.joint_names
