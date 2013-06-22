@@ -41,15 +41,15 @@ class CommandGripperClass():
     def setGripper(self, openPercentage):
         position = openPercentage * self.maxRange
 
-        self.client.wait_for_server()
+        #self.client.wait_for_server()
         self.client.send_goal(Pr2GripperCommandGoal(Pr2GripperCommand(position, self.effortLimit)))
         
         #temp fix
-        #rospy.sleep(2)
-        #return True
-
-        self.client.wait_for_result()
+        rospy.sleep(2)
         return True
+        
+        #self.client.wait_for_result()
+        #return True
 
         # below not guaranteed to work for grasping
         # result = self.client.get_result()        

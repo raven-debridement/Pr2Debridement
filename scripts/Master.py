@@ -33,10 +33,13 @@ class MasterClass():
             self.calibrateGripperState = ImageDetectionClass.State.CalibrateRight
 
         self.listener = tf.TransformListener()
-
+        rospy.loginfo('listener')
         self.imageDetector = imageDetector
+        rospy.loginfo('image detector')
         self.commandGripper = CommandGripperClass(self.gripperName)
+        rospy.loginfo('gripper')
         self.armControl = ArmControlClass(self.armName)
+        rospy.loginfo('arm control')
 
     def run(self):
         while not rospy.is_shutdown():

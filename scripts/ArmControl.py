@@ -15,7 +15,7 @@ import time
 import tf
 
 from Constants import ConstantsClass
-from joint_states_listener.srv import ReturnJointStates
+from Pr2Debridement.srv import ReturnJointStates
 
 from geometry_msgs.msg import PointStamped, PoseStamped
 
@@ -39,8 +39,9 @@ class ArmControlClass (pr2.PR2):
     
 
     def __init__ (self, armName):      
+        rospy.loginfo('calling parent to initialize')
         pr2.PR2.__init__(self)
-        
+        rospy.loginfo('parent initialized')
         if armName == ConstantsClass.ArmName.Left:
             self.arm = self.larm
             self.armName = 'leftarm'
