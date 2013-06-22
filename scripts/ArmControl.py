@@ -26,6 +26,7 @@ from Util import *
 from Pr2Debridement.srv import ReturnJointStates
 
 from geometry_msgs.msg import PointStamped, PoseStamped
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 import code
 
@@ -81,6 +82,8 @@ class ArmControlClass (pr2.PR2):
         self.arm.vel_limits = np.array([slow_down_ratio*limit for limit in self.arm.vel_limits])
         # slow down acceleration
         self.arm.acc_limits = np.array([slow_down_ratio*limit for limit in self.arm.acc_limits])
+
+        self.jointPub = rospy.Publisher(self.armName[0] + '_arm_controller/command',JointTrajectory)
 
         time.sleep(1)
 
@@ -289,6 +292,8 @@ class ArmControlClass (pr2.PR2):
         of the new joint positions (i.e. the last call of this method).
         When trying to debug this, make sure you have already executed
         sudo ntpdate pr2base
+        - fixed this by implementing new method send_joint_positions
+          by making the duration longer, less jerky
 
         As currPoseStamped approaches desPoseStamped, the movements
         become so small to a point the arm doesn't even really move.
@@ -300,6 +305,14 @@ class ArmControlClass (pr2.PR2):
         objectPose. I think I do this in Master.py)
 
 
+        Works for noise level of .01. Works mediocre for level of .02. Doesn't
+        really work for .
+
+
+        Ideas for servoing better (some of these should not be implemented
+        in this method, but rather in Master.py):
+        - fix the orientation first, then the xz plane, and then finally the
+        y direction
 
 
         When testing the servo, I suggest testing one step at a time.
@@ -357,13 +370,22 @@ class ArmControlClass (pr2.PR2):
 
         # change in pose
         deltaPose = np.hstack((deltaPos, deltaQuat))
+
+        print('deltaPose')
+        print(deltaPose)
         
         # now do the actually calculation
         # alpha determines movement/decay rate
-        alpha = .5
+        alpha = .2
         desJoints = alpha*np.dot(Jinv, deltaPose) + currJoints
+
+        print('deltaJoints')
+        print(alpha*np.dot(Jinv, deltaPose))
         
-        self.arm.goto_joint_positions(desJoints)
+        # the longer the duration, the less jerky it is
+        self.arm.send_joint_positions(desJoints, rospy.Duration(1.0))
+
+        
         
         
 

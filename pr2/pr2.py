@@ -197,13 +197,35 @@ class TrajectoryControllerWrapper(object):
         self.acc_limits = np.array([all_acc_limits[i_rave]*ACC_RATIO for i_rave in self.rave_joint_inds])
 
         ####### ADD NOISE ###############
-        noise_amt = .01
+        noise_amt = .03
         self.joint_noise = np.array([random.uniform(-noise_amt,noise_amt) for _ in range(len(self.ros_joint_inds))])
         ##################################
 
     def get_joint_positions(self):
         msg = self.pr2.get_last_joint_message()
         return np.array([msg.position[i] for i in self.ros_joint_inds])
+
+    
+    def send_joint_positions(self, joint_positions, duration):
+        """
+        Publishes joint_positions to be executed
+        in time duration
+        """
+        jt = tm.JointTrajectory()
+        jt.joint_names = self.joint_names
+        jt.header.stamp = rospy.Time.now()
+        
+        jtp = tm.JointTrajectoryPoint()
+        jtp.positions = joint_positions
+        jtp.time_from_start = duration
+        
+        ################################
+        if ADD_NOISE:
+            jtp.positions += self.joint_noise
+        ################################
+
+        jt.points = [jtp]
+        self.controller_pub.publish(jt)
 
 
     def goto_joint_positions(self, positions_goal):

@@ -73,7 +73,7 @@ class MasterClass():
             # pipeline section. keep loose for testing
 
             # translation bound in meters
-            transBound = .06
+            transBound = .1
             # rotation bound in radians
             rotBound = float("inf")
 
@@ -102,7 +102,7 @@ class MasterClass():
             else:
                 continue
 
-
+            rospy.sleep(15)
             
             rospy.loginfo('Opening the gripper')
             # open gripper
@@ -139,7 +139,7 @@ class MasterClass():
             rospy.sleep(delay)
             rospy.loginfo('Visual servoing to the object point')
             # visual servo to get to the object point
-            transBound = .05
+            transBound = .03
             rotBound = float("inf")
 
             success = True
@@ -194,7 +194,7 @@ class MasterClass():
             rospy.sleep(delay)
             rospy.loginfo('Moving vertical with the object')
             # move vertical with the object
-            transBound = .03
+            transBound = .05
             rotBound = .1
             vertObjectPose = PoseStamped(objectPose.header, objectPose.pose)
             vertObjectPose.pose.position.z += .1
