@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 
+"""
+For controlling the gripper
+"""
+
 # Import required Python code.
 import roslib
 roslib.load_manifest('Pr2Debridement')
@@ -12,6 +16,10 @@ from geometry_msgs.msg import PoseStamped
 from Constants import ConstantsClass
 
 class CommandGripperClass():
+    """
+    Class for controlling the opening and closing of the gripper,
+    as well as information related to the gripper
+    """
     def __init__(self, gripperName):
         """
         gripperName must be from ConstantsClass.GripperName
@@ -33,21 +41,26 @@ class CommandGripperClass():
 
 
     def openGripper(self):
+        """
+        Opens gripper all the way
+        """
         return self.setGripper(1)
 
     def closeGripper(self):
+        """
+        Closes gripper all the way
+        """
         return self.setGripper(0)
 
     def setGripper(self, openPercentage):
+        """
+        Opens the gripper openPercentage of the way
+        """
         position = openPercentage * self.maxRange
 
         self.client.wait_for_server()
         self.client.send_goal(Pr2GripperCommandGoal(Pr2GripperCommand(position, self.effortLimit)))
         
-        #temp fix
-        #rospy.sleep(2)
-        #return True
-
         self.client.wait_for_result()
         return True
 
@@ -61,6 +74,7 @@ class CommandGripperClass():
     def gripperPose(self):
         """
         Returns a PoseStamped of current gripper pose
+        according to tf
         """
         pose = PoseStamped()
         pose.header.stamp = rospy.Time.now()
@@ -69,7 +83,14 @@ class CommandGripperClass():
         return pose
 
 
+
+
+
 def test():
+    """
+    Opens and closes each gripper
+    and checks for return status
+    """
 
     success = True
     timeDelay = 3
@@ -115,6 +136,4 @@ def test():
 #for testing
 if __name__ == '__main__':
     rospy.init_node('gripper_node')
-    #cgl = CommandGripperClass(ConstantsClass.GripperName.Left)
-    #cgl.openGripper()
     test()

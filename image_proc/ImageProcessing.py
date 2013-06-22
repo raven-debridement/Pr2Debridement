@@ -241,6 +241,11 @@ class ImageProcessingClass():
         
 
 def test():
+    """
+    Runs the image processing class,
+    prints out the centroid and
+    closest to centroid
+    """
     rospy.init_node('image_processing')
     ip = ImageProcessingClass()
     

@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+"""
+Contains general constants that
+are frequently used
+"""
+
 # Import required Python code.
 import roslib
 roslib.load_manifest('Pr2Debridement')
@@ -10,12 +15,6 @@ class ConstantsClass:
         Left = 'l_arm'
         Right = 'r_arm'
 
-    class ControllerName:
-        JTCartesian = 'pose_controller'
-        CartesianTwist = 'twist_controller'
-
-    # ArmName + '_' + ControllerName = full controller name
-
     class GripperName:
         Left = 'l_gripper'
         Right = 'r_gripper'
@@ -25,6 +24,9 @@ class ConstantsClass:
         Right = 'r_gripper_tool_frame'
 
     class Request:
+        """
+        Type of constraints/costs, for trajopt
+        """
         noRequest = 0
         goNear = 1
         goReceptacle = 2

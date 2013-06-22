@@ -27,7 +27,7 @@ class ImageDetectionClass():
             self.leftGripperPose = None
             self.rightGripperPose = None
             #receptacle point. Must have frame_id of global (or main camera) frame
-            #is the exact place to drop off (i.e. don't need to do extra calcs to move away
+            #is the exact place to drop off (i.e. don't need to do extra calcs to move away)
             self.receptaclePoint = None
             #table normal. Must be according to global (or main camera) frame
             if normal != None:
@@ -44,15 +44,15 @@ class ImageDetectionClass():
             # image processing to find object
             self.objectProcessing = ImageProcessingClass()
 
-            # Temporary. Will eventually be placed with real image detection
-            # Will subscribe to camera feeds eventually
+            # Temporary. For finding the receptacle
             rospy.Subscriber('stereo_points_3d', PointStamped, self.stereoCallback)
 
+            # Temporary. For continuously updating the gripper poses
             rospy.Subscriber('/wide_stereo/right/image_rect', Image,self.imageCallback)
 
       def stereoCallback(self, msg):
             """
-            Temporary. First click sets receptaclePoint, all others are objectPoints
+            Temporary. Initialize receptaclePoint
             """
             if self.receptaclePoint == None:
                   self.receptaclePoint = msg
@@ -64,7 +64,6 @@ class ImageDetectionClass():
             Temporary. Sets gripper poses to absolutely correct value
             """
             # gripperPoses in own frames
-            #rospy.loginfo('Image received')
             rgp = PoseStamped()
             rgp.header.stamp = msg.header.stamp
             rgp.header.frame_id = ConstantsClass.ToolFrame.Right
@@ -78,15 +77,10 @@ class ImageDetectionClass():
             self.leftGripperPose = lgp
             
 
-      """
-      def hasFoundObject(self):
-          return self.objectProcessing.canProcess()  
-          #return self.objectPoint != None
-      """
-
       def getObjectPose(self):
             """
-            Returns object point plus the table normal as the orientation
+            Returns a PoseStamped of the object point
+            plus the table normal as the orientation
 
             Returns None if no object found
             """
@@ -98,9 +92,7 @@ class ImageDetectionClass():
       
       def getObjectPoint(self):
             """
-            May update to take argument currPos, and then choose object closest to currPos
-            
-            Also, keep track of object points and not object poses because we assume the object will be on a flat table.
+            Returns PointStamped of the object point
 
             Returns None if no object found
             """
@@ -108,7 +100,10 @@ class ImageDetectionClass():
             
             if objectPoint == None:
                   return None
-            objectPoint.point.z -=.03 #TEMP depends on height of object
+            
+            # TO BE MODIFIED DEPENDING ON OBJECT
+            # determines how low to grip the object
+            objectPoint.point.z -=.03 
             
             return objectPoint
             
@@ -165,7 +160,13 @@ class ImageDetectionClass():
             """
             return self.receptaclePoint
 
-def test():     
+
+
+def test():
+      """
+      Prints when an objectPoint has been detected
+      Mostly a test of the ImageProcessing class
+      """
       rospy.init_node('image_detection_node')
       imageDetector = ImageDetectionClass()
       while not rospy.is_shutdown():

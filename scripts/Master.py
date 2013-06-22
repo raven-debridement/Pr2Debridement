@@ -15,6 +15,24 @@ from ImageDetection import ImageDetectionClass
 from Util import *
 
 class MasterClass():
+    """
+    Contains the master pipeline for Pr2Debridement in the run method
+
+    The general pipeline is as follows:
+    - identify the receptacle, object, and gripper
+    - open the gripper
+    - move to a point near the object
+    - servo to the object
+    - close the gripper
+    - move up with the object
+    - move to the receptacle
+    - open the gripper
+    ... repeat
+
+    If any of the steps fails, the loop goes back to the beginning
+
+    Each pipeline staged is logged using rospy.loginfo
+    """
     def __init__(self, armName, imageDetector):
         """
         armName must be from ConstantsClass.ArmName
@@ -32,27 +50,40 @@ class MasterClass():
 
         self.listener = tf.TransformListener()
 
+        # initialize the three main control mechanisms
+        # image detection, gripper control, and arm control
         self.imageDetector = imageDetector
         self.commandGripper = CommandGripperClass(self.gripperName)
         self.armControl = ArmControlClass(self.armName)
 
     def run(self):
+        """
+        Loops through the pipeline
+        """
         while not rospy.is_shutdown():
             # can change rate
             rospy.sleep(.5)
 
-            # delay between parts
+            # delay between parts of the pipeline
             delay = .5
-            # timeout class with 15 second timeout
+            # timeout class with 15 second timeout, can change
             timeout = TimeoutClass(15)
-            # translation bound
+
+            # bounds, can change for each particular
+            # pipeline section. keep loose for testing
+
+            # translation bound in meters
             transBound = .06
-            # rotation bound
+            # rotation bound in radians
             rotBound = float("inf")
+
+
             
             rospy.loginfo('Searching for the receptacle')
             if not self.imageDetector.hasFoundReceptacle():
                 continue
+
+
 
             rospy.loginfo('Searching for object point')
             # find object point and pose
@@ -62,6 +93,7 @@ class MasterClass():
             objectPoint = poseStampedToPointStamped(objectPose)
             
 
+
             rospy.loginfo('Searching for ' + self.gripperName)
             # find gripper point
             if self.imageDetector.hasFoundGripper(self.gripperName):
@@ -69,6 +101,7 @@ class MasterClass():
                 gripperPoint = poseStampedToPointStamped(gripperPose)
             else:
                 continue
+
 
             
             rospy.loginfo('Opening the gripper')
@@ -82,16 +115,14 @@ class MasterClass():
             nearObjectPose = PoseStamped(objectPose.header, objectPose.pose)
             nearObjectPose.pose.position.y += .1 # 10 cm to left
             nearObjectPose.pose.position.z += .1 # and a little above, for safety
-            # Add noise below ######
 
-            ########################
             self.armControl.goToArmPose(nearObjectPose, True, ConstantsClass.Request.goNear)
 
             success = True
             timeout.start()
             while not withinBounds(gripperPose, nearObjectPose, transBound, rotBound, self.listener):
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
-                #objectPose = self.imageDetector.getObjectPose()
+                
                 if timeout.hasTimedOut():
                     success = False
                     break
@@ -111,20 +142,22 @@ class MasterClass():
             transBound = .05
             rotBound = float("inf")
 
-
-
             success = True
             timeout.start()
             while not withinBounds(gripperPose, objectPose, transBound, rotBound, self.listener):
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
                 objectPose = self.imageDetector.getObjectPose()
                 # for servoing to work, make "goal" point be to the right more
+                # might not work, just trying this
                 objectPose.pose.position.y -= .03
 
+                # servo to pose by one step, wait for user to press enter
                 self.armControl.servoToPose(gripperPose, objectPose)
                 raw_input()
-                ############# need to eventually take gripperPose into account
+                
                 """
+                # originally tried servoing by computing "differences" in poses
+                # didn't work.
                 reportedGripperPose = self.commandGripper.gripperPose()
                 if reportedGripperPose == None:
                     continue
@@ -134,16 +167,14 @@ class MasterClass():
                 desiredObjectPose = addPoses(objectPose, gripperPoseDifference)
                 if desiredObjectPose == None:
                     continue
+                self.armControl.goToArmPose(desiredObjectPose, False)
                 """
-                #print('objectPose')
-                #print(objectPose)
-                #print('desiredObjectPose')
-                #print(desiredObjectPose)
-                ########################################################
-                #self.armControl.goToArmPose(desiredObjectPose, False)
+
 
                 if timeout.hasTimedOut():
                     success = False
+                    # commented out the break
+                    # while stepping through the servoing
                     #break
                 rospy.sleep(.1)
 
@@ -162,19 +193,20 @@ class MasterClass():
 
             rospy.sleep(delay)
             rospy.loginfo('Moving vertical with the object')
-            # visual servo to get to the object point
+            # move vertical with the object
             transBound = .03
             rotBound = .1
             vertObjectPose = PoseStamped(objectPose.header, objectPose.pose)
             vertObjectPose.pose.position.z += .1
+
+            # currently have set to no planning, can change
+            self.armControl.goToArmPose(vertObjectPose, False)
 
             success = True
             timeout.start()
             while not withinBounds(gripperPose, vertObjectPose, transBound, rotBound, self.listener):
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
             
-                self.armControl.goToArmPose(vertObjectPose, False)
-
                 if timeout.hasTimedOut():
                     success = False
                     break
@@ -199,9 +231,7 @@ class MasterClass():
             timeout.start()
             while not withinBounds(gripperPose, receptaclePose, transBound, rotBound, self.listener):
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
-                receptaclePose = self.imageDetector.getReceptaclePose()
-                # CURRENTLY NOT TAKING INTO ACCOUNT GRIPPER POSE
-                #self.armControl.planAndGoToArmPose(receptaclePose)
+
                 if timeout.hasTimedOut():
                     success = False
                     break
@@ -210,23 +240,26 @@ class MasterClass():
             if not success:
                 continue
 
+
+
             rospy.loginfo('Opening the gripper to drop in the receptacle')
             # open gripper to drop off
             if not self.commandGripper.openGripper():
                 continue
 
-            # temporary
-            # when image segmentation done, object will automatically be
-            # removed b/c it will be in the receptacle
-            #self.imageDetector.removeObjectPoint()
 
 
 
-def test():
+def mainloop():
+    """
+    Gets an instance of the MasterClass
+    for the left arm and executes the
+    run loop
+    """
     rospy.init_node('master_node')
     imageDetector = ImageDetectionClass()
     master = MasterClass(ConstantsClass.ArmName.Left, imageDetector)
     master.run()
 
 if __name__ == '__main__':
-    test()
+    mainloop()
