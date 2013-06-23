@@ -57,7 +57,7 @@ class ArmControlClass (pr2.PR2):
         # number of iterations for trajopt
         self.n_steps = 60
 
-        self.env.Load('/home/gkahn/Berkeley/Research/ros_ws/sandbox/Pr2Debridement/data/table.xml')
+        self.env.Load('/home/annal/src/Pr2Debridement/data/table.xml')
         
         #trajoptpy.SetInteractive(True)
         slow_down_ratio = .5
