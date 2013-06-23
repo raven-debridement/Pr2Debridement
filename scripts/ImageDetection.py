@@ -54,7 +54,7 @@ class ImageDetectionClass():
 
             # image processing to find object
             self.listener = tf.TransformListener()
-            self.state = ImageDeetectionClass.State.Calibrating
+            self.state = ImageDetectionClass.State.Calibrating
             self.objectProcessing = ImageProcessingClass()
 
             # Temporary. For finding the receptacle

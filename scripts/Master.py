@@ -157,9 +157,12 @@ class MasterClass():
                 # might not work, just trying this
                 objectPose.pose.position.y -= .03
 
+                rospy.loginfo('starting to servo')
+
                 # servo to pose by one step, wait for user to press enter
                 self.armControl.servoToPose(gripperPose, objectPose)
                 raw_input()
+                rospy.loginfo('finished servoing')
                 
                 """
                 # originally tried servoing by computing "differences" in poses
