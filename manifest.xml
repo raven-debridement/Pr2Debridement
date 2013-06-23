@@ -17,6 +17,7 @@
   <depend package="opencv2"/>
   <depend package="message_filters"/>
   <depend package="image_geometry"/>
+  <depend package="ar_pose"/>
 
   <depend package="geometry_msgs"/>
   <depend package="actionlib_msgs"/>

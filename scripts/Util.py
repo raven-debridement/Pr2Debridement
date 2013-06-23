@@ -4,7 +4,7 @@
 import roslib
 roslib.load_manifest('Pr2Debridement')
 import rospy
-from geometry_msgs.msg import Twist, PointStamped, PoseStamped, Quaternion, Point
+from geometry_msgs.msg import Twist, PointStamped, PoseStamped, Quaternion, Point, TransformStamped
 import tf
 import tf.transformations as tft
 import operator
@@ -15,6 +15,20 @@ def positionSubtract(p1, offset):
     pos.y = p1.y - offset.y
     pos.z = p1.z - offset.z
     return pos
+
+def makeTransform(parent, child, trans, rot, time):
+    transform = TransformStamped()
+    transform.header.stamp = time
+    transform.header.frame_id = parent
+    transform.transform.translation.x = trans[0]
+    transform.transform.translation.y = trans[1]
+    transform.transform.translation.z = trans[2]
+    transform.transform.rotation.x = rot[0]
+    transform.transform.rotation.y = rot[1]
+    transform.transform.rotation.z = rot[2]
+    transform.transform.rotation.w = rot[3]
+    transform.child_frame_id = child
+    return transform
 
 def xyzAndFrameToPointStamped(x, y, z, frame_id):
     pStamped = PointStamped()

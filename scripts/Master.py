@@ -35,6 +35,7 @@ class MasterClass():
         self.listener = tf.TransformListener()
         rospy.loginfo('listener')
         self.imageDetector = imageDetector
+        self.imageDetector.setState(self.calibrateGripperState)
         rospy.loginfo('image detector')
         self.commandGripper = CommandGripperClass(self.gripperName)
         rospy.loginfo('gripper')
@@ -55,11 +56,6 @@ class MasterClass():
             # rotation bound
             rotBound = float("inf")
 
-            
-            rospy.loginfo('Calibrating gripper')
-            self.imageDetector.setState(self.calibrateGripperState)
-            if not self.isCalibrated():
-                continue
             
             rospy.loginfo('Searching for the receptacle')
             if not self.imageDetector.hasFoundReceptacle():
