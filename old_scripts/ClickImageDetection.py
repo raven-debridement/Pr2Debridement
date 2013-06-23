@@ -1,13 +1,16 @@
 #!/usr/bin/env python
 
+"""
+This version of ImageDetection is for clicking on both receptacle and objects
+"""
+
 # Import required Python code.
 import roslib
 roslib.load_manifest('Pr2Debridement')
 import rospy
 import sys
-from geometry_msgs.msg import Twist, PointStamped, PoseStamped, Quaternion, TransformStamped
+from geometry_msgs.msg import Twist, PointStamped, PoseStamped, Quaternion
 from sensor_msgs.msg import Image
-from ar_pose.msg import *
 import tf
 import tf.transformations as tft
 import math
@@ -18,27 +21,19 @@ from image_proc import ImageProcessingClass
 
 from threading import Lock
 
-ids_to_joints = {0: ConstantsClass.GripperName.Right,
-                 1: ConstantsClass.GripperName.Left}
-
 class ImageDetectionClass():
-    
-      class State():
-            CalibrateLeft = 0
-            CalibrateRight = 1
-            Calibrated = 2
-            Calibrating = 3 # waiting for signal to calibrate left or right
-
       """
       Used to detect object, grippers, and receptacle
       """
       def __init__(self, normal=None):
+            #PointStamped TEMP!!!!!!!!!!!!!!
+            self.objectPoint = None
             
             #gripper pose. Must both have frame_id of respective tool frame
             self.leftGripperPose = None
             self.rightGripperPose = None
             #receptacle point. Must have frame_id of global (or main camera) frame
-            #is the exact place to drop off (i.e. don't need to do extra calcs to move away)
+            #is the exact place to drop off (i.e. don't need to do extra calcs to move away
             self.receptaclePoint = None
             #table normal. Must be according to global (or main camera) frame
             if normal != None:
@@ -52,83 +47,39 @@ class ImageDetectionClass():
                   self.normal = Util.makeQuaternion(quat[3], quat[0], quat[1], quat[2])
 
 
+            #Lock so two arms can access one ImageDetectionClass
+            # TEMP!!!!
+            self.objectLock = Lock()
+
             # image processing to find object
-            self.listener = tf.TransformListener()
-            self.state = ImageDeetectionClass.State.Calibrating
             self.objectProcessing = ImageProcessingClass()
 
-            # Temporary. For finding the receptacle
+            # Temporary. Will eventually be placed with real image detection
+            # Will subscribe to camera feeds eventually
             rospy.Subscriber('stereo_points_3d', PointStamped, self.stereoCallback)
-            # Get grippers using AR
-            rospy.Subscriber('/stereo_pose', ARMarkers, self.arCallback)
 
-      def setState(self, state):
-            self.state = state
+            rospy.Subscriber('/wide_stereo/right/image_rect', Image,self.imageCallback)
 
       def stereoCallback(self, msg):
             """
-            Temporary. Initialize receptaclePoint
+            Temporary. First click sets receptaclePoint, all others are objectPoints
             """
             if self.receptaclePoint == None:
                   self.receptaclePoint = msg
                   self.receptaclePoint.point.z += .2
-            
-
-      def arCallback(self, msg):
-            markers = msg.markers
-            for marker in markers:
-                arframe = ConstantsClass.StereoAR + "_" + str(marker.id)
-                if ids_to_joints[marker.id] == ConstantsClass.GripperName.Left:
-                    self.arHandler(arframe, "left")
-                elif ids_to_joints[marker.id] == ConstantsClass.GripperName.Right:
-                    self.arHandler(arframe, "right")
-
-      def arHandler(self, arframe, armname):
-        if armname == 'left':
-            gripper_name = ConstantsClass.GripperName.Left
-            gripper_frame = 'calculated_gripper_frame_l'
-            tool_frame = ConstantsClass.ToolFrame.Left
-        else:
-            gripper_name = ConstantsClass.GripperName.Right
-            gripper_frame = 'calculated_gripper_frame_r'
-            tool_frame = ConstantsClass.ToolFrame.Right
-        if ((self.state == ImageDetectionClass.State.CalibrateLeft and armname == "left") or
-            (self.state == ImageDetectionClass.State.CalibrateRight and armname == "right")):
-            self.listener.waitForTransform(ConstantsClass.Camera, arframe,
-                                           rospy.Time.now(), rospy.Duration(2.0))
-            time = self.listener.getLatestCommonTime(tool_frame,
-                                                     arframe)
-            (trans,rot) = self.listener.lookupTransform(arframe,
-                                                        tool_frame,
-                                                        time)
-            self.transform = Util.makeTransform(arframe, gripper_frame, trans, rot, rospy.Time())
-            print armname + " offset", (trans, rot)
-            self.state = ImageDetectionClass.State.Calibrated
-        elif self.isCalibrated():
-            self.listener.waitForTransform(ConstantsClass.Camera, arframe,
-                                           rospy.Time.now(), rospy.Duration(2.0))
-            time = self.listener.getLatestCommonTime(ConstantsClass.Camera, arframe)
-            self.transform.header.stamp = time
-            self.listener.setTransform(self.transform)
-            calibrated_pose = PoseStamped()
-            calibrated_pose.header.stamp = time
-            calibrated_pose.header.frame_id = gripper_frame
-            gp = self.listener.transformPose(ConstantsClass.Camera, calibrated_pose)
-            gpfpose = self.listener.transformPose(ConstantsClass.ToolFrame.Left, gp)
-            if armname == "left":
-                self.leftGripperPose = gp
             else:
-                self.rightGripperPose = gp
-
-      def isCalibrated(self):
-            return self.state == ImageDetectionClass.State.Calibrated
-                
+                  self.objectLock.acquire()
+                  msg.point.z -= .03 # so gripper doesn't pick up on lip of can
+                  self.objectPoint = msg
+                  self.objectLock.release()
+            
 
       def imageCallback(self, msg):
             """
             Temporary. Sets gripper poses to absolutely correct value
             """
             # gripperPoses in own frames
+            #rospy.loginfo('Image received')
             rgp = PoseStamped()
             rgp.header.stamp = msg.header.stamp
             rgp.header.frame_id = ConstantsClass.ToolFrame.Right
@@ -142,10 +93,15 @@ class ImageDetectionClass():
             self.leftGripperPose = lgp
             
 
+      """
+      def hasFoundObject(self):
+          return self.objectProcessing.canProcess()  
+          #return self.objectPoint != None
+      """
+
       def getObjectPose(self):
             """
-            Returns a PoseStamped of the object point
-            plus the table normal as the orientation
+            Returns object point plus the table normal as the orientation
 
             Returns None if no object found
             """
@@ -157,21 +113,39 @@ class ImageDetectionClass():
       
       def getObjectPoint(self):
             """
-            Returns PointStamped of the object point
+            May update to take argument currPos, and then choose object closest to currPos
+            
+            Also, keep track of object points and not object poses because we assume the object will be on a flat table.
 
             Returns None if no object found
             """
-            objectPoint = self.objectProcessing.getClosestToCentroid()
-            
+            #if not self.hasFoundObject():
+            #      return None
+
+            #objectPoint = self.objectProcessing.getClosestToCentroid()
+            objectPoint = self.objectPoint
+
             if objectPoint == None:
                   return None
+            #objectPoint.point.z -=.08 #TEMP depends on height of object
             
-            # TO BE MODIFIED DEPENDING ON OBJECT
-            # determines how low to grip the object
-            objectPoint.point.z -=.03 
-            
+            # TEMP!!!!!!!!!
+            self.objectLock.acquire()
+            #objectPoint = self.objectPoint
+            objectPoint.header.stamp = rospy.Time.now()
+            self.objectLock.release()
             return objectPoint
             
+      
+      def removeObjectPoint(self):
+            #Debug tool to remove object point
+            if not self.hasFoundObject():
+                  return None
+
+            self.objectLock.acquire()
+            self.objectPoint = None
+            self.objectLock.release()
+      
 
       def hasFoundGripper(self, gripperName):
             """
@@ -225,13 +199,7 @@ class ImageDetectionClass():
             """
             return self.receptaclePoint
 
-
-
-def test():
-      """
-      Prints when an objectPoint has been detected
-      Mostly a test of the ImageProcessing class
-      """
+def test():     
       rospy.init_node('image_detection_node')
       imageDetector = ImageDetectionClass()
       while not rospy.is_shutdown():
@@ -241,15 +209,7 @@ def test():
             else:
                   print('Not Found')
             rospy.sleep(.5)
-
-def testCalibration():
-    rospy.init_node('image_detection_node')
-    imageDetector = ImageDetectionClass()
-    while not rospy.is_shutdown():
-        while not imageDetector.isCalibrated():
-            imageDetector.setState(ImageDetectionClass.State.CalibrateLeft)
-        rospy.sleep(.5)
       
 
 if __name__ == '__main__':
-      testCalibration()
+      test()

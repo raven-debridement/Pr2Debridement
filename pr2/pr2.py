@@ -1,3 +1,9 @@
+"""
+Pr2Debridement uses the classes PR2, Arm, and TrajectoryControllerWrapper most directly
+
+The global variable ADD_NOISE determines if a consistent (but random) offset will be added to the joints.
+(Search ADD_NOISE to see where the noise is added)
+"""
 
 import numpy as np, os.path as osp
 import openravepy as rave
@@ -5,8 +11,8 @@ from numpy import inf, zeros, dot, r_
 from numpy.linalg import norm, inv
 from threading import Thread
 
-from rapprentice import retiming, math_utils as mu, kinematics_utils as ku, \
-    conversions as conv, func_utils 
+
+import retiming, math_utils as mu, kinematics_utils as ku, conversions as conv, func_utils
 
 import roslib
 roslib.load_manifest("pr2_controllers_msgs")
@@ -19,8 +25,13 @@ import rospy
 import geometry_msgs.msg as gm           
 import move_base_msgs.msg as mbm   
 
+import random
+
 VEL_RATIO = .2
 ACC_RATIO = .3
+
+# Added by me. Determines if noise will be add to joints
+ADD_NOISE = False
 
 class IKFail(Exception):
     pass
@@ -190,12 +201,42 @@ class TrajectoryControllerWrapper(object):
         all_acc_limits = self.pr2.robot.GetDOFVelocityLimits()
         self.acc_limits = np.array([all_acc_limits[i_rave]*ACC_RATIO for i_rave in self.rave_joint_inds])
 
+        ####### ADD NOISE ###############
+        noise_amt = .03
+        self.joint_noise = np.array([random.uniform(-noise_amt,noise_amt) for _ in range(len(self.ros_joint_inds))])
+        ##################################
+
     def get_joint_positions(self):
         msg = self.pr2.get_last_joint_message()
         return np.array([msg.position[i] for i in self.ros_joint_inds])
 
+    
+    def send_joint_positions(self, joint_positions, duration):
+        """
+        Publishes joint_positions to be executed
+        in time duration
+        """
+        jt = tm.JointTrajectory()
+        jt.joint_names = self.joint_names
+        jt.header.stamp = rospy.Time.now()
+        
+        jtp = tm.JointTrajectoryPoint()
+        jtp.positions = joint_positions
+        jtp.time_from_start = duration
+        
+        ################################
+        if ADD_NOISE:
+            jtp.positions += self.joint_noise
+        ################################
+
+        jt.points = [jtp]
+        self.controller_pub.publish(jt)
+
 
     def goto_joint_positions(self, positions_goal):
+        """
+        This method is eventually called by the Cartesian controller (for servoing)
+        """
 
         positions_cur = self.get_joint_positions()
         assert len(positions_goal) == len(positions_cur)
@@ -208,6 +249,12 @@ class TrajectoryControllerWrapper(object):
 
         jtp = tm.JointTrajectoryPoint()
         jtp.positions = positions_goal
+
+        ############################
+        if ADD_NOISE:
+            jtp.positions += self.joint_noise
+        ############################
+
         jtp.velocities = zeros(len(positions_goal))
         jtp.time_from_start = rospy.Duration(duration)
 
@@ -231,13 +278,21 @@ class TrajectoryControllerWrapper(object):
 
 
     def follow_timed_joint_trajectory(self, positions, velocities, times):
+        """
+        This method is eventually called using trajopt output
+        """
 
         jt = tm.JointTrajectory()
         jt.joint_names = self.joint_names
         jt.header.stamp = rospy.Time.now()
 
+
         for (position, velocity, time) in zip(positions, velocities, times):
             jtp = tm.JointTrajectoryPoint()
+            #################################
+            if ADD_NOISE:
+                position = position + self.joint_noise
+            #################################
             jtp.positions = position
             jtp.velocities = velocity
             jtp.time_from_start = rospy.Duration(time)

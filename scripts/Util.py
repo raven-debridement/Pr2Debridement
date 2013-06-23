@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+"""
+Contains general useful functions
+for conversions, etc.
+"""
+
 # Import required Python code.
 import roslib
 roslib.load_manifest('Pr2Debridement')
@@ -31,6 +36,9 @@ def makeTransform(parent, child, trans, rot, time):
     return transform
 
 def xyzAndFrameToPointStamped(x, y, z, frame_id):
+    """
+    Converts xyz and frame_id to PointStamped
+    """
     pStamped = PointStamped()
     
     pStamped.header.frame_id = frame_id
@@ -41,6 +49,9 @@ def xyzAndFrameToPointStamped(x, y, z, frame_id):
     return pStamped
 
 def posAndOrientAndFrameToPoseStamped(x_trans, y_trans, z_trans, w, x_rot, y_rot, z_rot, frame_id):
+    """
+    Converts xyz, orientation, and frame_id to PoseStamped
+    """
     pStamped = PoseStamped()
     
     pStamped.header.frame_id = frame_id
@@ -58,6 +69,8 @@ def posAndOrientAndFrameToPoseStamped(x_trans, y_trans, z_trans, w, x_rot, y_rot
 
 def pointStampedToPoseStamped(pointStamped, orientation=None):
     """
+    Combines pointStamped and orientation quaternion into PoseStamped
+
     Quaternion of new poseStamped defaults to no rotation
     """
     poseStamped = PoseStamped()
@@ -74,6 +87,9 @@ def pointStampedToPoseStamped(pointStamped, orientation=None):
     return poseStamped
 
 def poseStampedToPointStamped(poseStamped):
+    """
+    Converts PoseStamped to PointStamped
+    """
     pointStamped = PointStamped()
     pointStamped.header = poseStamped.header
     pointStamped.point.x = poseStamped.pose.position.x
@@ -83,6 +99,9 @@ def poseStampedToPointStamped(poseStamped):
     return pointStamped
 
 def makeQuaternion(w, x, y, z):
+    """
+    wxyz to a geometry_msgs.msg Quaternion
+    """
     newQuat = Quaternion()
     
     newQuat.w = w
@@ -93,10 +112,16 @@ def makeQuaternion(w, x, y, z):
     return newQuat
     
 def reversePoseStamped(poseStamped):
+    """
+    Returns a new PoseStamped with the reverse orientation of poseStamped
+    """
     poseStamped.pose.orientation = reverseQuaternion(poseStamped.pose.orientation)
     return poseStamped
 
 def reverseQuaternion(quat):
+    """
+    Returns a new geometry_msgs.msg Quaternion of reversed quat
+    """
     newQuat = Quaternion()
 
     newQuat.w = quat.w
@@ -109,12 +134,18 @@ def reverseQuaternion(quat):
 def convertToSameFrameAndTime(ps0, ps1, listener):
     """
     Converts point/pose 0 and point/pose 1 to the same frame
+
+    Returns (None, None) if tf fails
     """
     ps0frame, ps1frame = ps0.header.frame_id, ps1.header.frame_id
 
     # need to be on same time so transformation will work
     # sometimes exceptions are thrown, DEAL WITH THIS
-    commonTime = listener.getLatestCommonTime(ps0frame, ps1frame)
+    try:
+        commonTime = listener.getLatestCommonTime(ps0frame, ps1frame)
+    except tf.Exception:
+        return (None,None)
+
     ps0.header.stamp = ps1.header.stamp = commonTime
 
     if type(ps0) == PointStamped:
@@ -128,6 +159,9 @@ def convertToSameFrameAndTime(ps0, ps1, listener):
 def euclideanDistance(ps0, ps1, listener=None, xPlane=True, yPlane=True, zPlane=True):
     """
     Returns euclidean distance between two PointStamped
+
+    xPlane, yPlane, zPlane booleans determine which planes the euclidean distance
+    is computed over
     """
     # must be in same reference frame
     try:
@@ -155,6 +189,8 @@ def euclideanDistance(ps0, ps1, listener=None, xPlane=True, yPlane=True, zPlane=
 def withinBounds(ps0, ps1, transBound, rotBound, listener=None):
     """
     Returns if ps0 and ps1 (PoseStamped) are within translation and rotation bounds of each other
+
+    Note: rotBound is for euler angles
     """
     # must be in same reference frame
     if listener != None:
@@ -172,21 +208,11 @@ def withinBounds(ps0, ps1, transBound, rotBound, listener=None):
     wrot0, xrot0, yrot0, zrot0 = ps0.pose.orientation.w, ps0.pose.orientation.x, ps0.pose.orientation.y, ps0.pose.orientation.z    
     wrot1, xrot1, yrot1, zrot1 = ps1.pose.orientation.w, ps1.pose.orientation.x, ps1.pose.orientation.y, ps1.pose.orientation.z
 
+    # convert to euler angles
     ps0rot0, ps0rot1, ps0rot2 = tft.euler_from_quaternion([xrot0, yrot0, zrot0, wrot0])
     ps1rot0, ps1rot1, ps1rot2 = tft.euler_from_quaternion([xrot1, yrot1, zrot1, wrot1])
 
     within = True
-    
-    """
-    print('within')
-    print(abs(xtrans0 - xtrans1))
-    print(abs(ytrans0 - ytrans1))
-    print(abs(ztrans0 - ztrans1))
-    
-    print(abs(ps0rot0 - ps1rot0))
-    print(abs(ps0rot1 - ps1rot1))
-    print(abs(ps0rot2 - ps1rot2))
-    """
 
     within &= abs(xtrans0 - xtrans1) < transBound
     within &= abs(ytrans0 - ytrans1) < transBound
@@ -246,28 +272,12 @@ def subPoses(ps0, ps1, listener=None):
     """
     return combinePoses(ps0,ps1,operator.sub,listener)
 
-def timeoutFunc(loopTest, update, timeout, sleepTime=.1):
-    """
-    Higher-order function
-
-    loopTest - must take one argument, which is the output of update
-    update - must take no arguments
-    timeout - time until failure
-
-    Output - True if loopTest(update()) returns False once
-    """
-    success = True
-    stopTime = rospy.Time.now() + timeout
-    
-    while loopTest(update()):
-        if rospy.Time.now() > stopTime:
-            return False
-        rospy.sleep(sleepTime)
-    
-    return success
 
 class TimeoutClass():
     def __init__(self, timeoutTime):
+        """
+        timeoutTime is integer of how long until times out
+        """
         self.timeoutTime = timeoutTime
 
     def start(self):
@@ -277,4 +287,8 @@ class TimeoutClass():
         self.endTime = rospy.Time.now() + rospy.Duration(self.timeoutTime)
 
     def hasTimedOut(self):
+        """
+        returns true if time since start method called is
+        greater than the current time
+        """
         return rospy.Time.now() > self.endTime 

@@ -1,0 +1,1 @@
+The joint states listener is used by ArmControl to get the current joint states in order to do move the joints

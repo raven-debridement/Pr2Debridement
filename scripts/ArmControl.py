@@ -1,11 +1,17 @@
 #!/usr/bin/env python
 
+"""
+Note: environment loads a xml file for the table. Must change depending on what table you are using
+"""
+
 import roslib; roslib.load_manifest('Pr2Debridement')
 import openravepy
 import trajoptpy
 import json
 import numpy as np
 import trajoptpy.kin_utils as ku
+import os
+import random
 
 import rospy
 import openravepy as rave
@@ -13,11 +19,14 @@ from pr2 import pr2
 
 import time
 import tf
+import tf.transformations as tft
 
 from Constants import ConstantsClass
+from Util import *
 from Pr2Debridement.srv import ReturnJointStates
 
 from geometry_msgs.msg import PointStamped, PoseStamped
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 import code
 
@@ -57,37 +66,51 @@ class ArmControlClass (pr2.PR2):
         # number of iterations for trajopt
         self.n_steps = 60
 
-        self.env.Load('/home/annal/src/Pr2Debridement/data/table.xml')
+        ##############################
+        # CHOOSE THE TABLE    ########
+        ##############################
+        table_path = os.path.dirname(__file__) + '/../data/SDHtable.xml'
+        #table_path = os.path.dirname(__file__) + '/../data/table.xml'
+        self.env.Load(table_path)
         
-        #trajoptpy.SetInteractive(True)
+        # used to slow down the pr2 motions
         slow_down_ratio = .5
 
         self.robot.SetDOFVelocityLimits(slow_down_ratio*self.robot.GetDOFVelocityLimits())
         self.robot.SetDOFAccelerationLimits(slow_down_ratio*self.robot.GetDOFAccelerationLimits())
  
-        # can slow down limits here!
+        # slow down velocites
         self.arm.vel_limits = np.array([slow_down_ratio*limit for limit in self.arm.vel_limits])
         # slow down acceleration
         self.arm.acc_limits = np.array([slow_down_ratio*limit for limit in self.arm.acc_limits])
+
+        self.jointPub = rospy.Publisher(self.armName[0] + '_arm_controller/command',JointTrajectory)
 
         time.sleep(1)
 
  
     def goToArmPose(self, pose, isPlanned, reqName=ConstantsClass.Request.noRequest):
         """
-        Path plan using trajopt. Then execute trajectory
+        Go to PoseStamped pose
+
+        If isPlanned is True, then trajopt is used to plan the trajectory
+        Otherwise, just IK is used to plan trajectory
+
+        If IK fails, arm doesn't move
+        
+        The methods for executing the trajectories are in pr2/pr2.py
         """
         # must convert to BaseLink frame
         if self.listener != None:
-            while True:
-                try:
-                    commonTime = self.listener.getLatestCommonTime(ConstantsClass.BaseLink,pose.header.frame_id)
-                    pose.header.stamp = commonTime
-                    pose = self.listener.transformPose(ConstantsClass.BaseLink,pose)
-                    rospy.loginfo('converted successully')
-                    break
-                except tf.Exception:
-                    rospy.sleep(.1)
+            try:
+                commonTime = self.listener.getLatestCommonTime(ConstantsClass.BaseLink,pose.header.frame_id)
+                pose.header.stamp = commonTime
+                pose = self.listener.transformPose(ConstantsClass.BaseLink,pose)
+            except tf.Exception:
+                return
+            
+        if pose.header.frame_id != ConstantsClass.BaseLink:
+            return
 
         # get the current joint state for joint_names
         rospy.wait_for_service("return_joint_states")
@@ -141,7 +164,7 @@ class ArmControlClass (pr2.PR2):
 
     def getRequest(self, reqName, xyz_target, quat_target, init_joint_target):
         """
-        Different request types. See ConstantsClass.Request
+        Different request types for trajopt costs/constraints. See ConstantsClass.Request
         """
         if reqName == ConstantsClass.Request.goReceptacle:
             
@@ -243,16 +266,140 @@ class ArmControlClass (pr2.PR2):
 
     def goToSide(self):
         """
+        Commands the arm to the side
+
         Useful for debugging
         """
         self.arm.goto_posture('side')
 
+    def servoToPose(self, currPoseStamped, desPoseStamped):
+        """
+        Given currPoseStamped and desPoseStamped, uses the local
+        inverse jacobian to determine the new joint positions
+        needed to move closer to desPoseStamped
+
+        Because the jacobian is a local approximation, incorrect
+        behavior becomes more prevalent the further currPoseStamped
+        is from desPoseStamped
+
+        Follows page 4 (specifically slide 16)
+        http://public.cranfield.ac.uk/c5354/teaching/av/LECTURE_NOTES/lecture11-2x2.pdf
+
+        Some problems I've run into:
+        
+        The movement is jerky. I'm not sure if this is due to an error
+        in the below calculations or just in the execution of the new
+        joint positions. I'm inclined to think it is in the execution
+        of the new joint positions (i.e. the last call of this method).
+        When trying to debug this, make sure you have already executed
+        sudo ntpdate pr2base
+        - fixed this by implementing new method send_joint_positions
+          by making the duration longer, less jerky
+
+        As currPoseStamped approaches desPoseStamped, the movements
+        become so small to a point the arm doesn't even really move.
+        You can change this by increasing alpha, but then note the arm moves
+        a lot in the beginning of the trajectory and will have less
+        time to correct for errors. One semi-hackish solution I have sort
+        of tried is to pass in a desPoseStamped that is slightly to the right
+        of the actual objectPose (by subtracting a few centimeters from
+        objectPose. I think I do this in Master.py)
 
 
-def test():
+        Works for noise level of .01. Works mediocre for level of .02. Doesn't
+        really work for .
+
+
+        Ideas for servoing better (some of these should not be implemented
+        in this method, but rather in Master.py):
+        - fix the orientation first, then the xz plane, and then finally the
+        y direction
+
+
+        When testing the servo, I suggest testing one step at a time.
+        I currently have it set up that way in Master.py
+        """
+        
+        try:
+            currPoseStamped, desPoseStamped = convertToSameFrameAndTime(currPoseStamped, desPoseStamped, self.listener)
+        except tf.Exception:
+            return
+        
+        # get the current joint state for joint_names
+        rospy.wait_for_service("return_joint_states")
+        s = rospy.ServiceProxy("return_joint_states", ReturnJointStates)
+        resp = s(self.joint_names)
+        
+        # set current joint values on robot
+        self.robot.SetDOFValues(resp.position, self.robot.GetManipulator(self.armName).GetArmIndices())
+        currJoints = np.array(resp.position)
+        
+        # calculate position and rotation jacobians
+        manip = self.robot.GetManipulator(self.armName)
+        Jpos = manip.CalculateJacobian()
+        Jrot = manip.CalculateRotationJacobian()
+
+        # combine to form Jacobian, then find pseudo-inverse
+        J = np.vstack((Jpos, Jrot))
+        Jinv = np.linalg.pinv(J)
+        
+        
+
+        # get current position
+        pos = currPoseStamped.pose.position
+        currPos = np.array([pos.x, pos.y, pos.z])
+        # get current quaternion
+        quat = currPoseStamped.pose.orientation
+        currQuat = np.array([quat.w, quat.x, quat.y, quat.z])
+
+        # get desired position
+        pos = desPoseStamped.pose.position
+        desPos = np.array([pos.x, pos.y, pos.z])
+        # get desired quaternion
+        quat = desPoseStamped.pose.orientation
+        desQuat = np.array([quat.w, quat.x, quat.y, quat.z])
+
+        # change in pos/quat
+        deltaPos = desPos - currPos
+        
+        # the following method for computing deltaQuat
+        # was derived by Ankush
+        # also, simply desQuat - currQuat serves as
+        # a good approximation also
+        d = desQuat - currQuat
+        deltaQuat = d - np.dot(d, currQuat)*currQuat
+
+        # change in pose
+        deltaPose = np.hstack((deltaPos, deltaQuat))
+
+        print('deltaPose')
+        print(deltaPose)
+        
+        # now do the actually calculation
+        # alpha determines movement/decay rate
+        alpha = .2
+        desJoints = alpha*np.dot(Jinv, deltaPose) + currJoints
+
+        print('deltaJoints')
+        print(alpha*np.dot(Jinv, deltaPose))
+        
+        # the longer the duration, the less jerky it is
+        self.arm.send_joint_positions(desJoints, rospy.Duration(1.0))
+
+        
+        
+        
+
+
+def test_goToArmPose():
+    """
+    Waits for stereo click,
+    then moves to the clicked point
+    """
     rospy.init_node('main_node')
     leftArm = ArmControlClass(ConstantsClass.ArmName.Left)
     
+    # uncomment to have arms go to side, good for resetting
     #leftArm.goToSide()
     #return
 
@@ -265,6 +412,7 @@ def test():
         
         x,y,z = msg.point.x, msg.point.y, msg.point.z
 
+        # set orientation to horizontal right
         eulerx = 0
         eulery = 0
         eulerz = -pi/2
@@ -276,6 +424,10 @@ def test():
 
         test.desiredPose.header = msg.header
         test.desiredPose.pose.position = msg.point
+        
+        # currently set to return to the left and above
+        # can change depending on where you want the
+        # arm to go
         test.desiredPose.pose.position.z += .03
         test.desiredPose.pose.position.y += .1
 
@@ -284,7 +436,7 @@ def test():
 
     rospy.Subscriber(ConstantsClass.StereoName, PointStamped, stereoCallback)
 
-    while True:
+    while not rospy.is_shutdown():
         rospy.loginfo('outer loop')
         if test.desiredPose != None:
             rospy.loginfo('inner loop')            
@@ -298,7 +450,17 @@ def test():
         rospy.sleep(.5)
 
 
-
+def test_servo():
+    """
+    Can expand to become an actual test of the
+    servoing method. Or just test from Master.py,
+    which is what I have been doing
+    """
+    rospy.init_node('main_node')
+    leftArm = ArmControlClass(ConstantsClass.ArmName.Left)
+    leftArm.servoToPose(PoseStamped(), PoseStamped())
+    return
 
 if __name__ == '__main__':    
-    test()
+    test_goToArmPose()
+    #test_servo()
