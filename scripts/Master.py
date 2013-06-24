@@ -143,8 +143,8 @@ class MasterClass():
             rotBound = float("inf")
 
             success = True
-            timeout.start()
             while not withinBounds(gripperPose, objectPose, transBound, rotBound, self.listener):
+                timeout.start()
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
                 objectPose = self.imageDetector.getObjectPose()
                 # for servoing to work, make "goal" point be to the right more
