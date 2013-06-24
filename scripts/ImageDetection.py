@@ -5,8 +5,9 @@ import roslib
 roslib.load_manifest('Pr2Debridement')
 import rospy
 import sys
-from geometry_msgs.msg import Twist, PointStamped, PoseStamped, Quaternion
+from geometry_msgs.msg import Twist, PointStamped, PoseStamped, Quaternion, TransformStamped, Point
 from sensor_msgs.msg import Image
+from ar_pose.msg import *
 import tf
 import tf.transformations as tft
 import math
@@ -17,7 +18,17 @@ from image_proc import ImageProcessingClass
 
 from threading import Lock
 
+ids_to_joints = {0: ConstantsClass.GripperName.Right,
+                 1: ConstantsClass.GripperName.Left}
+
 class ImageDetectionClass():
+    
+      class State():
+            CalibrateLeft = 0
+            CalibrateRight = 1
+            Calibrated = 2
+            Calibrating = 3 # waiting for signal to calibrate left or right
+
       """
       Used to detect object, grippers, and receptacle
       """
@@ -42,13 +53,18 @@ class ImageDetectionClass():
 
 
             # image processing to find object
+            self.listener = tf.TransformListener()
+            self.state = ImageDetectionClass.State.Calibrating
             self.objectProcessing = ImageProcessingClass()
 
             # Temporary. For finding the receptacle
             rospy.Subscriber('stereo_points_3d', PointStamped, self.stereoCallback)
+            # Get grippers using AR
+            self.debugArCount = 0
+            rospy.Subscriber('/stereo_pose', ARMarkers, self.arCallback)
 
-            # Temporary. For continuously updating the gripper poses
-            rospy.Subscriber('/wide_stereo/right/image_rect', Image,self.imageCallback)
+      def setState(self, state):
+            self.state = state
 
       def stereoCallback(self, msg):
             """
@@ -58,6 +74,91 @@ class ImageDetectionClass():
                   self.receptaclePoint = msg
                   self.receptaclePoint.point.z += .2
             
+
+      def arCallback(self, msg):
+            markers = msg.markers
+            for marker in markers:
+                arframe = ConstantsClass.StereoAR + "_" + str(marker.id)
+                if ids_to_joints[marker.id] == ConstantsClass.GripperName.Left:
+                    #self.arHandler(marker, "left")
+                    self.arHandlerWithOrientation(arframe, "left")
+                elif ids_to_joints[marker.id] == ConstantsClass.GripperName.Right:
+                    self.arHandler(marker, "right")
+
+      def debugAr(self, gp):
+        self.debugArCount += 1
+        if self.debugArCount % 10 == 0:
+            print self.listener.transformPose(ConstantsClass.ToolFrame.Left, gp)
+
+      def arHandler(self, marker, armname):
+        pose = marker.pose.pose
+
+        if armname == 'left':
+            tool_frame = ConstantsClass.ToolFrame.Left
+        elif armname == 'right':
+            tool_frame = ConstantsClass.ToolFrame.Right
+        time = self.listener.getLatestCommonTime(ConstantsClass.Camera, tool_frame)
+        if time == 0:
+            return
+        (trans, rot) = self.listener.lookupTransform(ConstantsClass.Camera, tool_frame, time)
+
+        if (self.state == ImageDetectionClass.State.CalibrateLeft):
+            offset = Point()
+            offset.x = pose.position.x - trans[0]
+            offset.y = pose.position.y - trans[1]
+            offset.z = pose.position.z - trans[2]
+            self.offset = offset
+            self.state = ImageDetectionClass.State.Calibrated
+        elif self.state == ImageDetectionClass.State.Calibrated:
+            pos = Util.positionSubtract(pose.position, self.offset)
+            gp = PoseStamped()
+            gp.header.stamp = marker.header.stamp
+            gp.header.frame_id = marker.header.frame_id
+            gp.pose.position = pos
+            gp.pose.orientation = Util.makeQuaternion(rot[3], rot[0], rot[1], rot[2])
+            self.leftGripperPose = gp
+            self.debugAr(gp)
+
+      def arHandlerWithOrientation(self, arframe, armname):
+        if armname == 'left':
+            gripper_name = ConstantsClass.GripperName.Left
+            gripper_frame = 'calculated_gripper_frame_l'
+            tool_frame = ConstantsClass.ToolFrame.Left
+        else:
+            gripper_name = ConstantsClass.GripperName.Right
+            gripper_frame = 'calculated_gripper_frame_r'
+            tool_frame = ConstantsClass.ToolFrame.Right
+        if ((self.state == ImageDetectionClass.State.CalibrateLeft and armname == "left") or
+            (self.state == ImageDetectionClass.State.CalibrateRight and armname == "right")):
+            self.listener.waitForTransform(ConstantsClass.Camera, arframe,
+                                           rospy.Time.now(), rospy.Duration(2.0))
+            time = self.listener.getLatestCommonTime(tool_frame,
+                                                     arframe)
+            (trans,rot) = self.listener.lookupTransform(arframe,
+                                                        tool_frame,
+                                                        time)
+            self.transform = Util.makeTransform(arframe, gripper_frame, trans, rot, rospy.Time())
+            print armname + " offset", (trans, rot)
+            self.state = ImageDetectionClass.State.Calibrated
+        elif self.isCalibrated():
+            self.listener.waitForTransform(ConstantsClass.Camera, arframe,
+                                           rospy.Time.now(), rospy.Duration(2.0))
+            time = self.listener.getLatestCommonTime(ConstantsClass.Camera, arframe)
+            self.transform.header.stamp = time
+            self.listener.setTransform(self.transform)
+            calibrated_pose = PoseStamped()
+            calibrated_pose.header.stamp = time
+            calibrated_pose.header.frame_id = gripper_frame
+            gp = self.listener.transformPose(ConstantsClass.Camera, calibrated_pose)
+            if armname == "left":
+                self.leftGripperPose = gp
+            else:
+                self.rightGripperPose = gp
+            self.debugAr(gp)
+
+      def isCalibrated(self):
+            return self.state == ImageDetectionClass.State.Calibrated
+                
 
       def imageCallback(self, msg):
             """
@@ -176,7 +277,15 @@ def test():
             else:
                   print('Not Found')
             rospy.sleep(.5)
+
+def testCalibration():
+    rospy.init_node('image_detection_node')
+    imageDetector = ImageDetectionClass()
+    while not rospy.is_shutdown():
+        if not imageDetector.isCalibrated():
+            imageDetector.setState(ImageDetectionClass.State.CalibrateLeft)
+        rospy.sleep(.5)
       
 
 if __name__ == '__main__':
-      test()
+      testCalibration()

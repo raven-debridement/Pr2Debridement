@@ -44,17 +44,23 @@ class MasterClass():
         if (armName == ConstantsClass.ArmName.Left):
             self.gripperName = ConstantsClass.GripperName.Left
             self.toolframe = ConstantsClass.ToolFrame.Left
+            self.calibrateGripperState = ImageDetectionClass.State.CalibrateLeft
         else:
             self.gripperName = ConstantsClass.GripperName.Right
             self.toolframe = ConstantsClass.ToolFrame.Right
+            self.calibrateGripperState = ImageDetectionClass.State.CalibrateRight
 
         self.listener = tf.TransformListener()
 
         # initialize the three main control mechanisms
         # image detection, gripper control, and arm control
         self.imageDetector = imageDetector
+        self.imageDetector.setState(self.calibrateGripperState)
+        rospy.loginfo('image detector')
         self.commandGripper = CommandGripperClass(self.gripperName)
+        rospy.loginfo('gripper')
         self.armControl = ArmControlClass(self.armName)
+        rospy.loginfo('arm control')
 
     def run(self):
         """
@@ -102,8 +108,6 @@ class MasterClass():
             else:
                 continue
 
-            rospy.sleep(15)
-            
             rospy.loginfo('Opening the gripper')
             # open gripper
             if not self.commandGripper.openGripper():
@@ -132,7 +136,7 @@ class MasterClass():
                 continue
             
             
-
+            raw_input()
 
 
 
@@ -147,13 +151,19 @@ class MasterClass():
                 timeout.start()
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
                 objectPose = self.imageDetector.getObjectPose()
+                if not objectPose:
+                    success = False
+                    break
                 # for servoing to work, make "goal" point be to the right more
                 # might not work, just trying this
                 objectPose.pose.position.y -= .03
 
+                rospy.loginfo('starting to servo')
+
                 # servo to pose by one step, wait for user to press enter
                 self.armControl.servoToPose(gripperPose, objectPose)
                 raw_input()
+                rospy.loginfo('finished servoing')
                 
                 """
                 # originally tried servoing by computing "differences" in poses
@@ -201,19 +211,6 @@ class MasterClass():
 
             # currently have set to no planning, can change
             self.armControl.goToArmPose(vertObjectPose, False)
-
-            success = True
-            timeout.start()
-            while not withinBounds(gripperPose, vertObjectPose, transBound, rotBound, self.listener):
-                gripperPose = self.imageDetector.getGripperPose(self.gripperName)
-            
-                if timeout.hasTimedOut():
-                    success = False
-                    break
-                rospy.sleep(.1)
-
-            if not success:
-                continue
 
 
 

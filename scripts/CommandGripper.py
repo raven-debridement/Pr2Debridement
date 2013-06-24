@@ -58,12 +58,11 @@ class CommandGripperClass():
         """
         position = openPercentage * self.maxRange
 
-        self.client.wait_for_server()
+        #self.client.wait_for_server()
         self.client.send_goal(Pr2GripperCommandGoal(Pr2GripperCommand(position, self.effortLimit)))
-        
         self.client.wait_for_result()
         return True
-
+        
         # below not guaranteed to work for grasping
         # result = self.client.get_result()        
         # return (result.reached_goal) or (result.stalled)

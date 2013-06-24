@@ -33,3 +33,5 @@ class ConstantsClass:
 
     BaseLink = 'base_link'
     StereoName = 'stereo_points_3d'
+    Camera = '/wide_stereo_optical_frame'
+    StereoAR = '/ar_stereo'

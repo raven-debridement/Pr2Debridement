@@ -101,7 +101,7 @@ class PR2(object):
         self.robot = self.env.GetRobots()[0]
 
         self.joint_listener = TopicListener("/joint_states", sm.JointState)
-
+        rospy.loginfo('after topic listener')
         # rave to ros conversions
         joint_msg = self.get_last_joint_message()        
         ros_names = joint_msg.name                
@@ -109,16 +109,21 @@ class PR2(object):
         self.good_ros_inds = np.flatnonzero(inds_ros2rave != -1) # ros joints inds with matching rave joint
         self.rave_inds = inds_ros2rave[self.good_ros_inds] # openrave indices corresponding to those joints
         self.update_rave()
+        rospy.loginfo('after update rave')
 
         self.larm = Arm(self, "l")
         self.rarm = Arm(self, "r")
+        rospy.loginfo('after arms')
         self.lgrip = Gripper(self, "l")
         self.rgrip = Gripper(self, "r")
+        rospy.loginfo('after grippers')
         self.head = Head(self)
+        rospy.loginfo('after head')
         self.torso = Torso(self)
+        rospy.loginfo('after torso')
         self.base = Base(self)
 
-
+        rospy.loginfo('before shutdown')
         rospy.on_shutdown(self.stop_all)
 
     def _set_rave_limits_to_soft_joint_limits(self):
