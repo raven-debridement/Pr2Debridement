@@ -57,6 +57,9 @@ class ImageDetectionClass():
             self.state = ImageDetectionClass.State.Calibrating
             self.objectProcessing = ImageProcessingClass()
 
+            self.locks = dict()
+            self.locks['ar_pose'] = Lock()
+
             # Temporary. For finding the receptacle
             rospy.Subscriber('stereo_points_3d', PointStamped, self.stereoCallback)
             # Get grippers using AR
@@ -76,6 +79,7 @@ class ImageDetectionClass():
             
 
       def arCallback(self, msg):
+            self.locks['ar_pose'].acquire()
             markers = msg.markers
             for marker in markers:
                 arframe = ConstantsClass.StereoAR + "_" + str(marker.id)
@@ -84,6 +88,7 @@ class ImageDetectionClass():
                     self.arHandlerWithOrientation(arframe, "left")
                 elif ids_to_joints[marker.id] == ConstantsClass.GripperName.Right:
                     self.arHandler(marker, "right")
+            self.locks['ar_pose'].release() 
 
       def debugAr(self, gp):
         self.debugArCount += 1
