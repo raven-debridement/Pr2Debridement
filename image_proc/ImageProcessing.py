@@ -16,6 +16,8 @@ import image_geometry
 import message_filters
 from threading import Lock
 
+SPLIT_SCREEN = True
+
 class ImageProcessingClass():
     """
     This class receives the left and right color rectified frames from the pr2 and processes the images.
@@ -211,16 +213,48 @@ class ImageProcessingClass():
 
         # find unfiltered pixels
         mat = cv.GetMat(threshImg)
+        if SPLIT_SCREEN:
+            yxCoords = self.getYxCoordsSplitScreen()
+        else:
+            yxCoords = self.getYxCoords(mat)
+
+        # check if any color is present
+        if len(yxCoords) == 0:
+            return colorImg, False, (0,0), (0,0)
+
+        (closest, centroid) = self.getCentroid(yxCoords)
+                    
+        return (threshImg, True, closest, centroid)
+
+    def getYxCoords(mat):
         yxCoords = []
         for x in range(mat.width):
             for y in range(mat.height):
                 if mat[y,x] > 0.0:
                     yxCoords.append((y,x))
 
-        # check if any color is present
-        if len(yxCoords) == 0:
-            return colorImg, False, (0,0), (0,0)
-                    
+    def getYxCoordsSplitScreen(mat):
+        """
+        Get the color only on the left side of the image.
+        If none, then get the color on the right side of the image.
+        """
+        yxCoords = []
+        for x in range(mat.width/2):
+            for y in range(mat.height):
+                if mat[y,x] > 0.0:
+                    yxCoords.append((y,x))
+
+        if len(yxCoords) != 0:
+           return yxCoords
+
+        for x in range(mat.width/2+1, mat.width):
+            for y in range(mat.height):
+                if mat[y,x] > 0.0:
+                    yxCoords.append((y,x))
+        return yxCoords
+
+    def getCentroid(self, yxCoords):
+        
         yCentroid = sum([y for y,x in yxCoords])/len(yxCoords)
         xCentroid = sum([x for y,x in yxCoords])/len(yxCoords)
 
@@ -236,7 +270,8 @@ class ImageProcessingClass():
         #print('('+str(xClose)+','+str(yClose)+')')
         #cv.Set2D(colorImg, yClose, xClose, (255,0,0))
 
-        return (threshImg, True, (xClose, yClose), (xCentroid, yCentroid))
+        return ((xClose, yClose), (xCentroid, yCentroid))
+
 
         
 
