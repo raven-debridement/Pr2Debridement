@@ -108,8 +108,6 @@ class MasterClass():
             else:
                 continue
 
-            rospy.sleep(15)
-            
             rospy.loginfo('Opening the gripper')
             # open gripper
             if not self.commandGripper.openGripper():
@@ -138,7 +136,7 @@ class MasterClass():
                 continue
             
             
-
+            raw_input()
 
 
 
@@ -149,10 +147,13 @@ class MasterClass():
             rotBound = float("inf")
 
             success = True
-            timeout.start()
             while not withinBounds(gripperPose, objectPose, transBound, rotBound, self.listener):
+                timeout.start()
                 gripperPose = self.imageDetector.getGripperPose(self.gripperName)
                 objectPose = self.imageDetector.getObjectPose()
+                if not objectPose:
+                    success = False
+                    break
                 # for servoing to work, make "goal" point be to the right more
                 # might not work, just trying this
                 objectPose.pose.position.y -= .03
@@ -210,19 +211,6 @@ class MasterClass():
 
             # currently have set to no planning, can change
             self.armControl.goToArmPose(vertObjectPose, False)
-
-            success = True
-            timeout.start()
-            while not withinBounds(gripperPose, vertObjectPose, transBound, rotBound, self.listener):
-                gripperPose = self.imageDetector.getGripperPose(self.gripperName)
-            
-                if timeout.hasTimedOut():
-                    success = False
-                    break
-                rospy.sleep(.1)
-
-            if not success:
-                continue
 
 
 

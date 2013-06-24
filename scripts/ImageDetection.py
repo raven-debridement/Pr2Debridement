@@ -5,7 +5,7 @@ import roslib
 roslib.load_manifest('Pr2Debridement')
 import rospy
 import sys
-from geometry_msgs.msg import Twist, PointStamped, PoseStamped, Quaternion, TransformStamped
+from geometry_msgs.msg import Twist, PointStamped, PoseStamped, Quaternion, TransformStamped, Point
 from sensor_msgs.msg import Image
 from ar_pose.msg import *
 import tf
@@ -60,6 +60,7 @@ class ImageDetectionClass():
             # Temporary. For finding the receptacle
             rospy.Subscriber('stereo_points_3d', PointStamped, self.stereoCallback)
             # Get grippers using AR
+            self.debugArCount = 0
             rospy.Subscriber('/stereo_pose', ARMarkers, self.arCallback)
 
       def setState(self, state):
@@ -79,11 +80,46 @@ class ImageDetectionClass():
             for marker in markers:
                 arframe = ConstantsClass.StereoAR + "_" + str(marker.id)
                 if ids_to_joints[marker.id] == ConstantsClass.GripperName.Left:
-                    self.arHandler(arframe, "left")
+                    #self.arHandler(marker, "left")
+                    self.arHandlerWithOrientation(arframe, "left")
                 elif ids_to_joints[marker.id] == ConstantsClass.GripperName.Right:
-                    self.arHandler(arframe, "right")
+                    self.arHandler(marker, "right")
 
-      def arHandler(self, arframe, armname):
+      def debugAr(self, gp):
+        self.debugArCount += 1
+        if self.debugArCount % 10 == 0:
+            print self.listener.transformPose(ConstantsClass.ToolFrame.Left, gp)
+
+      def arHandler(self, marker, armname):
+        pose = marker.pose.pose
+
+        if armname == 'left':
+            tool_frame = ConstantsClass.ToolFrame.Left
+        elif armname == 'right':
+            tool_frame = ConstantsClass.ToolFrame.Right
+        time = self.listener.getLatestCommonTime(ConstantsClass.Camera, tool_frame)
+        if time == 0:
+            return
+        (trans, rot) = self.listener.lookupTransform(ConstantsClass.Camera, tool_frame, time)
+
+        if (self.state == ImageDetectionClass.State.CalibrateLeft):
+            offset = Point()
+            offset.x = pose.position.x - trans[0]
+            offset.y = pose.position.y - trans[1]
+            offset.z = pose.position.z - trans[2]
+            self.offset = offset
+            self.state = ImageDetectionClass.State.Calibrated
+        elif self.state == ImageDetectionClass.State.Calibrated:
+            pos = Util.positionSubtract(pose.position, self.offset)
+            gp = PoseStamped()
+            gp.header.stamp = marker.header.stamp
+            gp.header.frame_id = marker.header.frame_id
+            gp.pose.position = pos
+            gp.pose.orientation = Util.makeQuaternion(rot[3], rot[0], rot[1], rot[2])
+            self.leftGripperPose = gp
+            self.debugAr(gp)
+
+      def arHandlerWithOrientation(self, arframe, armname):
         if armname == 'left':
             gripper_name = ConstantsClass.GripperName.Left
             gripper_frame = 'calculated_gripper_frame_l'
@@ -114,11 +150,11 @@ class ImageDetectionClass():
             calibrated_pose.header.stamp = time
             calibrated_pose.header.frame_id = gripper_frame
             gp = self.listener.transformPose(ConstantsClass.Camera, calibrated_pose)
-            gpfpose = self.listener.transformPose(ConstantsClass.ToolFrame.Left, gp)
             if armname == "left":
                 self.leftGripperPose = gp
             else:
                 self.rightGripperPose = gp
+            self.debugAr(gp)
 
       def isCalibrated(self):
             return self.state == ImageDetectionClass.State.Calibrated
@@ -246,7 +282,7 @@ def testCalibration():
     rospy.init_node('image_detection_node')
     imageDetector = ImageDetectionClass()
     while not rospy.is_shutdown():
-        while not imageDetector.isCalibrated():
+        if not imageDetector.isCalibrated():
             imageDetector.setState(ImageDetectionClass.State.CalibrateLeft)
         rospy.sleep(.5)
       
