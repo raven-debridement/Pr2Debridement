@@ -287,6 +287,7 @@ def testCalibration():
     rospy.init_node('image_detection_node')
     imageDetector = ImageDetectionClass()
     while not rospy.is_shutdown():
+        raw_input("press any key to calibrate")
         if not imageDetector.isCalibrated():
             imageDetector.setState(ImageDetectionClass.State.CalibrateLeft)
         rospy.sleep(.5)

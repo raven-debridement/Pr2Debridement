@@ -214,7 +214,7 @@ class ImageProcessingClass():
         # find unfiltered pixels
         mat = cv.GetMat(threshImg)
         if SPLIT_SCREEN:
-            yxCoords = self.getYxCoordsSplitScreen()
+            yxCoords = self.getYxCoordsSplitScreen(mat)
         else:
             yxCoords = self.getYxCoords(mat)
 
@@ -226,14 +226,15 @@ class ImageProcessingClass():
                     
         return (threshImg, True, closest, centroid)
 
-    def getYxCoords(mat):
+    def getYxCoords(self, mat):
         yxCoords = []
         for x in range(mat.width):
             for y in range(mat.height):
                 if mat[y,x] > 0.0:
                     yxCoords.append((y,x))
+        return yxCoords
 
-    def getYxCoordsSplitScreen(mat):
+    def getYxCoordsSplitScreen(self, mat):
         """
         Get the color only on the left side of the image.
         If none, then get the color on the right side of the image.
